@@ -1,13 +1,13 @@
-# Electron Starter
+# ATemplateEditor
 
-Electron application starter built for modular desktop apps with a strict typed boundary between Electron main, preload, and renderer.
+ATemplateEditor is a desktop Template Editor built with Electron, Vite, React, TypeScript, Tailwind CSS, and Vitest.
 
-This starter is intended to be cloned and initialized into a new product, not used as a demo app. The default architecture favors:
+The current foundation keeps:
 - Electron main-process ownership for privileged logic
 - typed IPC contracts
 - config-driven feature enablement
-- TDD for application logic
-- minimal UI-heavy testing
+- a renderer structure prepared for the Template workspace and Template preview
+- focused testing for future application logic
 
 ## What Is Included
 
@@ -19,7 +19,7 @@ This starter is intended to be cloned and initialized into a new product, not us
 - Vite
 - Vitest
 
-### Included Modules
+### Included Foundation
 - typed app config
 - module registry for main, preload, and renderer
 - typed IPC boundary
@@ -30,7 +30,7 @@ This starter is intended to be cloned and initialized into a new product, not us
 - optional licensing module
 - optional Drizzle + SQLite database module
 - structured logging
-- starter init/scaffold script
+- project initialization helpers
 
 ## Prerequisites
 
@@ -55,40 +55,16 @@ npm run test:unit:watch
 npm run build
 ```
 
-## Start A New Project From This Starter
-
-1. Clone this repository.
-2. Install dependencies with `npm install`.
-3. Run the starter init script with your project values.
-
-Example:
-
-```bash
-npm run init:starter -- --app-name=acme-desktop --app-id=com.acme.desktop --package-name=@acme/desktop --display-name="Acme Desktop" --modules=logging,i18n,database
-```
-
-Init inputs:
-- `app-name`: internal app/config name
-- `app-id`: Electron Builder app identifier
-- `package-name`: `package.json` package name
-- `display-name`: product name shown to users
-- `modules`: comma-separated starter modules to enable initially
-
-The init script updates starter-owned values in:
-- `package.json`
-- `electron-builder.json`
-- `config/base.ts`
-
 ## Template Rules
 
-This repository is a reusable Electron application template.
+This repository contains the ATemplateEditor application foundation.
 
 What should normally change per project:
 - package name
 - product display name
 - app id
 - update repository owner/repo
-- enabled starter modules
+- enabled application modules
 - default language
 - production licensing endpoints
 
@@ -113,7 +89,7 @@ src/i18n/                Translation setup and locale resources
 src/shared/              Shared contracts, types, and pure logic
 tests/unit/              Logic-first unit tests
 docs/                    Contributor and backend contract docs
-scripts/init/            Starter initialization logic
+scripts/init/            Project initialization helpers
 ```
 
 ## Config System Overview
@@ -178,7 +154,7 @@ Do not treat dev behavior as proof that a production-only module is fully config
 
 ## TDD And Tests
 
-This starter uses TDD for application logic.
+ATemplateEditor keeps a TDD-oriented workflow for application logic.
 
 Expectations:
 - add or update unit tests for logic changes
@@ -303,7 +279,7 @@ High-level behavior:
 
 ### GitHub Releases Usage
 
-This starter expects GitHub Releases as the production update source.
+ATemplateEditor expects GitHub Releases as the production update source when auto-update is enabled.
 
 Practical setup:
 - enable `features.autoUpdate` and `update.enabled`
@@ -333,10 +309,10 @@ Intended usage:
 - expose only typed IPC operations to the renderer
 - organize real app access through repositories and services
 
-The starter includes:
+The database foundation includes:
 - SQLite connection planning
 - Drizzle integration
-- starter schema
+- initial schema
 - repository example
 - service example
 - in-memory helpers for unit tests

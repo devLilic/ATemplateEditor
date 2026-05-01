@@ -2,7 +2,7 @@ import type { AppConfig } from './types'
 
 export const baseConfig: AppConfig = {
   environment: 'development',
-  appName: 'default-electron-app',
+  appName: 'ATemplateEditor',
   features: {
     i18n: false,
     autoUpdate: false,

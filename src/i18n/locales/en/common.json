@@ -1,7 +1,7 @@
 {
-  "app.title": "Electron + Vite + React",
-  "app.subtitle": "Starter foundation is being modularized.",
-  "app.learnMore": "Click on the Electron + Vite logo to learn more",
+  "app.title": "ATemplateEditor",
+  "app.subtitle": "Template workspace",
+  "app.learnMore": "Template preview",
   "update.check": "Check update",
   "update.checking": "Checking..."
 }
