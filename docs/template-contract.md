@@ -20,4 +20,16 @@ OnAir Player and TitleEditor should read only the contract parts they need. They
 - `osc` stores OSC metadata for future OnAir Player integration, without executing commands.
 - `onAir` stores playout metadata such as timing and visibility behavior.
 
+## Default Template
+
+The default template is a neutral starting point for the editor. It provides enough structure for future UI flows to open a usable template without introducing editor logic in the contract layer.
+
+- `canvas` uses the default `1920x1080` composition size.
+- `layers` includes a `Main Layer`.
+- `elements` includes a `Title` text element on the main layer.
+- `editableFields` includes one editable field with the key `title`.
+- `bindings` connects `title` to the text element's `text` target property.
+- `previewData.title` stores the sample value shown in previews.
+- `fallbackValues.title` stores the safe fallback value for the title field.
+
 This document intentionally stays minimal until the contract evolves through implementation tasks.

@@ -88,10 +88,18 @@ export interface TemplateAsset {
 
 export interface TemplateEditableField {
   id: string
+  key: string
+  label: string
+  type: 'text'
+  required: boolean
+  defaultValue: string
 }
 
 export interface TemplateBinding {
   id: string
+  fieldKey: string
+  elementId: string
+  targetProperty: 'text'
 }
 
 export interface TemplateOscCommand {
