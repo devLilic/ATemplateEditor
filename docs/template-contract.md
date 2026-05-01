@@ -32,4 +32,19 @@ The default template is a neutral starting point for the editor. It provides eno
 - `previewData.title` stores the sample value shown in previews.
 - `fallbackValues.title` stores the safe fallback value for the title field.
 
+## Validation Rules
+
+The base validator returns an object with `valid` and `errors`. Each error includes a `path` and a short `message`.
+
+- Required root fields: `schemaVersion`, `id`, `name`, `canvas`, `layers`, `elements`, `assets`, `editableFields`, and `bindings`.
+- `canvas.width` and `canvas.height` must be numbers greater than `0`.
+- `layers` must be an array. Each layer requires a non-empty `id` and `name`, boolean `visible` and `locked`, numeric `zIndex`, and `opacity` between `0` and `1`.
+- `elements` must be an array. Each element requires a non-empty `id`, `layerId`, `kind`, and `name`, valid `position` and `size`, boolean `visible` and `locked`, and kind-specific fields for `text`, `image`, or `shape`.
+- Each element `layerId` must reference an existing layer id.
+- `editableFields` must be an array. Each field requires a non-empty `id`, `key`, and `label`, a valid `type`, and boolean `required`.
+- Editable field types currently accepted by validation are `text`, `image`, and `number`.
+- `bindings` must be an array. Each binding requires a non-empty `id`, `fieldKey`, `elementId`, and valid `targetProperty`.
+- Binding `fieldKey` must reference an existing editable field key, and `elementId` must reference an existing element id.
+- Accepted binding `targetProperty` values are `text`, `image`, and `visibility`.
+
 This document intentionally stays minimal until the contract evolves through implementation tasks.
