@@ -3,6 +3,22 @@
 @tailwind utilities;
 
 :root {
+  --color-ui-app: 2 6 23;
+  --color-ui-panel: 15 23 42;
+  --color-ui-card: 17 24 39;
+  --color-ui-elevated: 30 41 59;
+  --color-ui-text-primary: 241 245 249;
+  --color-ui-text-secondary: 148 163 184;
+  --color-ui-text-disabled: 71 85 105;
+  --color-ui-accent: 34 211 238;
+  --color-ui-selected: 37 99 235;
+  --color-ui-success: 34 197 94;
+  --color-ui-warning: 245 158 11;
+  --color-ui-danger: 239 68 68;
+  --color-ui-border: 30 41 59;
+  --color-ui-border-strong: 51 65 85;
+  --color-ui-focus: 34 211 238;
+
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -17,26 +33,30 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #020617;
+  color: rgb(var(--color-ui-text-primary));
+  background: rgb(var(--color-ui-app));
 }
 
 button {
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid rgb(var(--color-ui-border));
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  color: rgb(var(--color-ui-text-primary));
+  background-color: rgb(var(--color-ui-card));
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.16s, box-shadow 0.16s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: rgb(var(--color-ui-accent));
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 2px solid rgb(var(--color-ui-focus));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgb(var(--color-ui-focus) / 0.25);
 }
 
 code {
