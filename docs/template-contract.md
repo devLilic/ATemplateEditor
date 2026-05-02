@@ -69,4 +69,16 @@ The base validator returns an object with `valid` and `errors`. Each error inclu
 - `previewData` is not real playout data and should not be treated as on-air content.
 - `TitleEditor` will produce the real data payloads in the separate application flow.
 
+## Editable Fields And Bindings
+
+- `editableFields` defines the values that `TitleEditor` is allowed to edit in the companion application flow.
+- `bindings` connects a `fieldKey` from `editableFields` to a target `elementId` in the template.
+- Accepted `targetProperty` values are:
+  - `text`
+  - `image`
+  - `visibility`
+- Removing an editable field also removes the bindings that reference its `key`, together with the associated `previewData` and `fallbackValues` entries.
+- Renaming the `key` of an editable field updates the bindings that referenced the previous key.
+- `editableFields` and `bindings` are part of the shared template contract used between authoring and downstream applications.
+
 This document intentionally stays minimal until the contract evolves through implementation tasks.

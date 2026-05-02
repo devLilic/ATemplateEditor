@@ -15,6 +15,7 @@ import {
   updateElement,
   type TemplateEditorState,
 } from '@/features/template-state'
+import { EditableBindingsPanel } from './EditableBindingsPanel'
 import { ElementPropertiesPanel } from './ElementPropertiesPanel'
 import { PreviewDataPanel } from './PreviewDataPanel'
 import { PreviewCanvas } from '@/shared/preview16x9'
@@ -77,7 +78,7 @@ export function TemplateEditorShell() {
     })
   }
 
-  const handleTemplatePreviewDataChange = (nextTemplate: Parameters<typeof createTemplateEditorState>[0]) => {
+  const handleTemplateChange = (nextTemplate: Parameters<typeof createTemplateEditorState>[0]) => {
     if (!selectedTemplate) {
       return
     }
@@ -324,7 +325,16 @@ export function TemplateEditorShell() {
           {selectedTemplate ? (
             <Panel eyebrow='Data' title='Preview data'>
               <PreviewDataPanel
-                onTemplateChange={handleTemplatePreviewDataChange}
+                onTemplateChange={handleTemplateChange}
+                template={selectedTemplate}
+              />
+            </Panel>
+          ) : null}
+
+          {selectedTemplate ? (
+            <Panel eyebrow='Bindings' title='Editable fields & bindings'>
+              <EditableBindingsPanel
+                onTemplateChange={handleTemplateChange}
                 template={selectedTemplate}
               />
             </Panel>
