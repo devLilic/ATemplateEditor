@@ -231,6 +231,11 @@ describe('ElementPropertiesPanel', () => {
         'color',
         'textAlign',
       ])
+
+      const colorControl = findControl(view.container, 'color')
+
+      expect(colorControl).toBeInstanceOf(HTMLInputElement)
+      expect((colorControl as HTMLInputElement).type).toBe('color')
     } finally {
       await view.cleanup()
     }
@@ -286,6 +291,14 @@ describe('ElementPropertiesPanel', () => {
         'borderColor',
         'borderWidth',
       ])
+
+      const fillColorControl = findControl(view.container, 'fillColor')
+      const borderColorControl = findControl(view.container, 'borderColor')
+
+      expect(fillColorControl).toBeInstanceOf(HTMLInputElement)
+      expect((fillColorControl as HTMLInputElement).type).toBe('color')
+      expect(borderColorControl).toBeInstanceOf(HTMLInputElement)
+      expect((borderColorControl as HTMLInputElement).type).toBe('color')
     } finally {
       await view.cleanup()
     }
@@ -420,6 +433,84 @@ describe('ElementPropertiesPanel', () => {
           ...textElement.style,
           fontSize: 72,
         },
+      })
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('calls onElementChange with a text color patch when color changes', async () => {
+    const { textElement } = createFixtureElements()
+    const onElementChange = vi.fn()
+    const view = await renderElementPropertiesPanel({
+      element: textElement,
+      onElementChange,
+    })
+
+    try {
+      const colorControl = findControl(view.container, 'color')
+
+      expect(colorControl).toBeDefined()
+
+      await act(async () => {
+        changeTextLikeControl(colorControl!, '#ff0000')
+      })
+
+      expect(onElementChange).toHaveBeenCalledWith(textElement.id, {
+        style: {
+          ...textElement.style,
+          color: '#ff0000',
+        },
+      })
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('calls onElementChange with a shape fillColor patch when fillColor changes', async () => {
+    const { shapeElement } = createFixtureElements()
+    const onElementChange = vi.fn()
+    const view = await renderElementPropertiesPanel({
+      element: shapeElement as TemplateElement,
+      onElementChange,
+    })
+
+    try {
+      const fillColorControl = findControl(view.container, 'fillColor')
+
+      expect(fillColorControl).toBeDefined()
+
+      await act(async () => {
+        changeTextLikeControl(fillColorControl!, '#abcdef')
+      })
+
+      expect(onElementChange).toHaveBeenCalledWith(shapeElement.id, {
+        fillColor: '#abcdef',
+      })
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('calls onElementChange with a shape borderColor patch when borderColor changes', async () => {
+    const { shapeElement } = createFixtureElements()
+    const onElementChange = vi.fn()
+    const view = await renderElementPropertiesPanel({
+      element: shapeElement as TemplateElement,
+      onElementChange,
+    })
+
+    try {
+      const borderColorControl = findControl(view.container, 'borderColor')
+
+      expect(borderColorControl).toBeDefined()
+
+      await act(async () => {
+        changeTextLikeControl(borderColorControl!, '#123456')
+      })
+
+      expect(onElementChange).toHaveBeenCalledWith(shapeElement.id, {
+        borderColor: '#123456',
       })
     } finally {
       await view.cleanup()

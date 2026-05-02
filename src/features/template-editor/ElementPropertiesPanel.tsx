@@ -367,7 +367,7 @@ export function ElementPropertiesPanel({
             label='color'
             onChange={handleColorChange}
             onInput={handleColorChange}
-            type='text'
+            type='color'
             value={element.style.color}
           />
 
@@ -434,7 +434,7 @@ export function ElementPropertiesPanel({
             label='fillColor'
             onChange={handleFillColorChange}
             onInput={handleFillColorChange}
-            type='text'
+            type='color'
             value={element.fillColor}
           />
 
@@ -442,8 +442,8 @@ export function ElementPropertiesPanel({
             label='borderColor'
             onChange={handleBorderColorChange}
             onInput={handleBorderColorChange}
-            type='text'
-            value={element.borderColor ?? ''}
+            type='color'
+            value={element.borderColor ?? '#000000'}
           />
 
           <FormInput
