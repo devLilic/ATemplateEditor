@@ -17,6 +17,7 @@ import {
 } from '@/features/template-state'
 import { EditableBindingsPanel } from './EditableBindingsPanel'
 import { ElementPropertiesPanel } from './ElementPropertiesPanel'
+import { LayersPanel } from './LayersPanel'
 import { OnAirMetadataPanel } from './OnAirMetadataPanel'
 import { PreviewDataPanel } from './PreviewDataPanel'
 import { PreviewCanvas } from '@/shared/preview16x9'
@@ -245,58 +246,65 @@ export function TemplateEditorShell() {
             title='Layers'
           >
             {editorState && editorState.template.layers.length > 0 ? (
-              <div className='flex flex-col gap-2' role='listbox' aria-label='Layers'>
-                {editorState.template.layers.map((layer) => {
-                  const isSelected = layer.id === editorState.selectedLayerId
-                  const layerElements = editorState.template.elements.filter(
-                    (element) => element.layerId === layer.id,
-                  )
+              <div className='flex flex-col gap-4'>
+                <LayersPanel
+                  onSelectLayer={(layerId) => {
+                    setEditorState((currentState) =>
+                      currentState ? selectLayer(currentState, layerId) : currentState,
+                    )
+                  }}
+                  onTemplateChange={handleTemplateChange}
+                  selectedLayerId={editorState.selectedLayerId}
+                  template={editorState.template}
+                />
 
-                  return (
-                    <div key={layer.id} className='rounded-md border border-ui-border bg-ui-card/35 p-2.5'>
-                      <Button
-                        data-selected={isSelected ? 'true' : undefined}
-                        aria-selected={isSelected}
-                        className='w-full justify-start'
-                        onClick={() => {
-                          setEditorState((currentState) =>
-                            currentState ? selectLayer(currentState, layer.id) : currentState,
-                          )
-                        }}
-                        variant={isSelected ? 'selected' : 'neutral'}
-                      >
-                        {layer.name}
-                      </Button>
+                <div className='rounded-md border border-ui-border bg-ui-card/20 p-3'>
+                  <div className='mb-2 text-[11px] font-semibold uppercase tracking-normal text-ui-disabled'>
+                    Elements
+                  </div>
+                  <div className='flex flex-col gap-2'>
+                    {editorState.template.layers
+                      .slice()
+                      .sort((left, right) => right.zIndex - left.zIndex)
+                      .map((layer) => {
+                        const layerElements = editorState.template.elements.filter(
+                          (element) => element.layerId === layer.id,
+                        )
 
-                      <div className='mt-2 flex flex-col gap-1 pl-3' role='list' aria-label={`${layer.name} elements`}>
-                        {layerElements.length > 0 ? (
-                          layerElements.map((element) => {
-                            const isElementSelected = element.id === editorState.selectedElementId
+                        return (
+                          <div key={layer.id}>
+                            <div className='mb-1 text-xs font-medium text-ui-secondary'>{layer.name}</div>
+                            <div className='flex flex-col gap-1 pl-3' role='list' aria-label={`${layer.name} elements`}>
+                              {layerElements.length > 0 ? (
+                                layerElements.map((element) => {
+                                  const isElementSelected = element.id === editorState.selectedElementId
 
-                            return (
-                              <Button
-                                key={element.id}
-                                data-selected={isElementSelected ? 'true' : undefined}
-                                aria-selected={isElementSelected}
-                                className='w-full justify-start'
-                                onClick={() => {
-                                  setEditorState((currentState) =>
-                                    currentState ? selectElement(currentState, element.id) : currentState,
+                                  return (
+                                    <Button
+                                      key={element.id}
+                                      data-selected={isElementSelected ? 'true' : undefined}
+                                      aria-selected={isElementSelected}
+                                      className='w-full justify-start'
+                                      onClick={() => {
+                                        setEditorState((currentState) =>
+                                          currentState ? selectElement(currentState, element.id) : currentState,
+                                        )
+                                      }}
+                                      variant={isElementSelected ? 'selected' : 'ghost'}
+                                    >
+                                      {element.name}
+                                    </Button>
                                   )
-                                }}
-                                variant={isElementSelected ? 'selected' : 'ghost'}
-                              >
-                                {element.name}
-                              </Button>
-                            )
-                          })
-                        ) : (
-                          <span className='px-3 py-1 text-sm text-ui-disabled'>No elements</span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+                                })
+                              ) : (
+                                <span className='px-3 py-1 text-sm text-ui-disabled'>No elements</span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
               </div>
             ) : (
               <EmptyState

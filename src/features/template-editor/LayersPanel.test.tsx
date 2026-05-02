@@ -1,0 +1,244 @@
+// @vitest-environment jsdom
+
+import { createElement } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { act } from 'react-dom/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { PreviewCanvas } from '@/shared/preview16x9'
+import { createEmptyTemplate, createLayer, createTextElement } from '@/shared/template-contract/templateContract'
+
+async function renderLayersPanel() {
+  const module = await import('./LayersPanel')
+  const LayersPanel = module.LayersPanel
+
+  const template = createTemplateWithTwoLayers()
+  const onTemplateChange = vi.fn()
+  const onSelectLayer = vi.fn()
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+
+  let root: Root
+
+  await act(async () => {
+    root = createRoot(container)
+    root.render(
+      <LayersPanel
+        onSelectLayer={onSelectLayer}
+        onTemplateChange={onTemplateChange}
+        selectedLayerId={template.layers[1]?.id}
+        template={template}
+      />,
+    )
+  })
+
+  return {
+    container,
+    onSelectLayer,
+    onTemplateChange,
+    template,
+    cleanup: async () => {
+      await act(async () => {
+        root.unmount()
+      })
+      container.remove()
+    },
+  }
+}
+
+function createTemplateWithTwoLayers() {
+  const bottomLayer = createLayer({ name: 'Background', zIndex: 0 })
+  const topLayer = createLayer({ name: 'Headline', zIndex: 1 })
+  const backgroundText = {
+    ...createTextElement({
+      layerId: bottomLayer.id,
+      name: 'Background text',
+    }),
+    fallbackText: 'Background text',
+  }
+  const headlineText = {
+    ...createTextElement({
+      layerId: topLayer.id,
+      name: 'Headline text',
+    }),
+    fallbackText: 'Headline text',
+  }
+
+  return {
+    ...createEmptyTemplate({ name: 'Layered template' }),
+    layers: [bottomLayer, topLayer],
+    elements: [backgroundText, headlineText],
+  }
+}
+
+function findExactText(container: ParentNode, text: string) {
+  return Array.from(container.querySelectorAll('*')).find((node) => {
+    const element = node as HTMLElement
+    return (
+      element.textContent?.trim() === text &&
+      Array.from(element.children).every((child) => child.textContent?.trim() !== text)
+    )
+  }) as HTMLElement | undefined
+}
+
+afterEach(() => {
+  document.body.innerHTML = ''
+  vi.resetModules()
+})
+
+describe('LayersPanel', () => {
+  it('renders the list of layers', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      expect(view.container.textContent).toContain('Background')
+      expect(view.container.textContent).toContain('Headline')
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('shows each layer name, visible toggle, locked toggle, and zIndex', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      expect(view.container.textContent).toContain('Background')
+      expect(view.container.textContent).toContain('Headline')
+      expect(view.container.textContent).toContain('0')
+      expect(view.container.textContent).toContain('1')
+      expect(view.container.querySelectorAll('input[aria-label^="Visible "]')).toHaveLength(2)
+      expect(view.container.querySelectorAll('input[aria-label^="Locked "]')).toHaveLength(2)
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('marks the selected layer with data-selected="true"', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const selectedLayer = findExactText(view.container, 'Headline')
+
+      expect(selectedLayer).toBeDefined()
+      expect(
+        selectedLayer?.closest('[data-selected="true"]') ?? selectedLayer?.querySelector('[data-selected="true"]'),
+      ).not.toBeNull()
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('updates layer.visible when the visible toggle changes', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const visibleToggle = view.container.querySelector(
+        `input[aria-label="Visible ${view.template.layers[0]?.name}"]`,
+      ) as HTMLInputElement | null
+
+      expect(visibleToggle).not.toBeNull()
+
+      await act(async () => {
+        if (!visibleToggle) {
+          return
+        }
+
+        visibleToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(view.onTemplateChange).toHaveBeenCalledTimes(1)
+      expect(view.onTemplateChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layers: expect.arrayContaining([
+            expect.objectContaining({
+              id: view.template.layers[0]?.id,
+              visible: false,
+            }),
+          ]),
+        }),
+      )
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('updates layer.locked when the locked toggle changes', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const lockedToggle = view.container.querySelector(
+        `input[aria-label="Locked ${view.template.layers[1]?.name}"]`,
+      ) as HTMLInputElement | null
+
+      expect(lockedToggle).not.toBeNull()
+
+      await act(async () => {
+        if (!lockedToggle) {
+          return
+        }
+
+        lockedToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(view.onTemplateChange).toHaveBeenCalledTimes(1)
+      expect(view.onTemplateChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layers: expect.arrayContaining([
+            expect.objectContaining({
+              id: view.template.layers[1]?.id,
+              locked: true,
+            }),
+          ]),
+        }),
+      )
+    } finally {
+      await view.cleanup()
+    }
+  })
+})
+
+describe('reorderLayersFromTopList', () => {
+  it('updates zIndex based on the top-first layer order', async () => {
+    const { reorderLayersFromTopList } = await import('./layersPanelState')
+    const template = createTemplateWithTwoLayers()
+    const reorderedTemplate = reorderLayersFromTopList(template, [
+      template.layers[1]!.id,
+      template.layers[0]!.id,
+    ])
+
+    expect(reorderedTemplate.layers[0]).toMatchObject({ id: template.layers[1]!.id, zIndex: 1 })
+    expect(reorderedTemplate.layers[1]).toMatchObject({ id: template.layers[0]!.id, zIndex: 0 })
+  })
+
+  it('gives the top layer in the list the highest zIndex', async () => {
+    const { reorderLayersFromTopList } = await import('./layersPanelState')
+    const template = createTemplateWithTwoLayers()
+    const reorderedTemplate = reorderLayersFromTopList(template, [
+      template.layers[0]!.id,
+      template.layers[1]!.id,
+    ])
+    const zIndexes = reorderedTemplate.layers.map((layer) => layer.zIndex)
+
+    expect(Math.max(...zIndexes)).toBe(
+      reorderedTemplate.layers.find((layer) => layer.id === template.layers[0]!.id)?.zIndex,
+    )
+  })
+
+  it('makes the preview respect the new zIndex order', async () => {
+    const { reorderLayersFromTopList } = await import('./layersPanelState')
+    const template = createTemplateWithTwoLayers()
+    const reorderedTemplate = reorderLayersFromTopList(template, [
+      template.layers[0]!.id,
+      template.layers[1]!.id,
+    ])
+    const markup = renderToStaticMarkup(
+      createElement(PreviewCanvas, {
+        template: reorderedTemplate,
+        width: 640,
+        height: 360,
+      }),
+    )
+
+    expect(markup.indexOf('Background text')).toBeGreaterThan(markup.indexOf('Headline text'))
+  })
+})
