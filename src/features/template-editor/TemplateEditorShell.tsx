@@ -26,12 +26,22 @@ import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Panel } from '@/shared/ui/Panel'
 
+type InspectorTabId = 'inspector' | 'data' | 'bindings' | 'onair'
+
+const inspectorTabs: Array<{ id: InspectorTabId; label: string }> = [
+  { id: 'inspector', label: 'Inspector' },
+  { id: 'data', label: 'Data' },
+  { id: 'bindings', label: 'Bindings' },
+  { id: 'onair', label: 'OnAir' },
+]
+
 export function TemplateEditorShell() {
   const [libraryState, setLibraryState] = useState(() =>
     createTemplateLibraryState({
       templates: [createDefaultTemplate()],
     }),
   )
+  const [activeInspectorTab, setActiveInspectorTab] = useState<InspectorTabId>('inspector')
   const [exportJson, setExportJson] = useState('')
   const [importJson, setImportJson] = useState('')
   const [importErrors, setImportErrors] = useState<Array<{ path: string; message: string }>>([])
@@ -100,52 +110,12 @@ export function TemplateEditorShell() {
   }
 
   return (
-    <main className='min-h-screen bg-ui-app text-ui-primary'>
-      <header className='border-b border-ui-border bg-ui-app/95 px-4 py-4 backdrop-blur sm:px-5'>
-        <div className='mx-auto flex min-h-[72px] max-w-[1600px] flex-col items-start justify-between gap-3 lg:flex-row lg:items-center'>
-          <div className='min-w-0'>
-            <div className='mb-2 flex flex-wrap items-center gap-2'>
-              <Badge variant='muted'>Template workspace</Badge>
-              <Badge variant='muted'>Basic UI</Badge>
-            </div>
-            <h1 className='m-0 text-xl font-semibold tracking-normal text-ui-primary sm:text-2xl'>
-              ATemplateEditor
-            </h1>
-            <p className='m-0 mt-1 text-sm text-ui-secondary'>
-              Template JSON editor for broadcast graphics
-            </p>
-          </div>
-          <div className='flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:shrink-0'>
-            <Button
-              className='w-full sm:w-auto'
-              onClick={() => {
-                if (!selectedTemplate) {
-                  setExportJson('No template selected')
-                  return
-                }
-
-                setExportJson(exportTemplateToJson(selectedTemplate))
-              }}
-              variant='neutral'
-            >
-              Export JSON
-            </Button>
-            <Button
-              className='w-full sm:w-auto'
-              onClick={() => {
-                setLibraryState((currentState) => createAndAddTemplate(currentState))
-                setImportErrors([])
-              }}
-              variant='accent'
-            >
-              New template
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className='mx-auto grid min-h-[calc(100vh-112px)] max-w-[1600px] grid-cols-1 gap-4 p-4 lg:grid-cols-2 xl:grid-cols-[240px_minmax(0,1fr)_340px]'>
-        <section className='order-2 flex min-h-0 min-w-0 flex-col gap-4 xl:order-1'>
+    <main
+      className='h-screen w-screen overflow-hidden bg-ui-app text-ui-primary'
+      data-testid='template-workspace'
+    >
+      <div className='grid h-full w-full grid-cols-1 gap-4 p-4 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_360px]'>
+        <section className='order-2 flex min-h-0 min-w-0 flex-col gap-4 lg:order-1'>
           <Panel
             aside={
               <div className='flex items-center gap-2'>
@@ -157,6 +127,34 @@ export function TemplateEditorShell() {
             eyebrow='Library'
             title='Template Library'
           >
+            <div className='mb-4 flex flex-col gap-2 border-b border-ui-border pb-4'>
+              <Badge className='w-fit' variant='muted'>Template workspace</Badge>
+              <div className='flex flex-col gap-2'>
+                <Button
+                  onClick={() => {
+                    setLibraryState((currentState) => createAndAddTemplate(currentState))
+                    setImportErrors([])
+                  }}
+                  variant='accent'
+                >
+                  Create template
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (!selectedTemplate) {
+                      setExportJson('No template selected')
+                      return
+                    }
+
+                    setExportJson(exportTemplateToJson(selectedTemplate))
+                  }}
+                  variant='neutral'
+                >
+                  Export JSON
+                </Button>
+              </div>
+            </div>
+
             {libraryState.templates.length > 0 ? (
               <div className='flex flex-col gap-2' role='listbox' aria-label='Template Library'>
                 {libraryState.templates.map((template) => {
@@ -309,7 +307,7 @@ export function TemplateEditorShell() {
           </Panel>
         </section>
 
-        <section className='order-1 min-w-0 lg:col-span-2 xl:order-2 xl:col-span-1'>
+        <section className='order-1 min-w-0 lg:order-2 xl:order-2'>
           <Panel
             aside={<Badge variant='selected'>16:9</Badge>}
             className='border-ui-accent/30 shadow-[0_0_0_1px_rgba(34,211,238,0.08),0_18px_48px_rgba(0,0,0,0.28)]'
@@ -347,66 +345,86 @@ export function TemplateEditorShell() {
           </Panel>
         </section>
 
-        <section className='order-3 flex min-h-0 min-w-0 flex-col gap-4 lg:col-span-2 xl:col-span-1'>
+        <section className='order-3 flex min-h-0 min-w-0 flex-col gap-4 lg:col-span-2 xl:col-span-1 xl:order-3'>
           <Panel
             aside={
-              selectedElement ? (
+              activeInspectorTab === 'inspector' && selectedElement ? (
                 <div className='flex items-center gap-2'>
                   <Badge variant='selected'>Selected element</Badge>
                   <Badge variant='muted'>{selectedElement.kind}</Badge>
                 </div>
+              ) : activeInspectorTab === 'onair' ? (
+                <Badge variant='muted'>Metadata</Badge>
               ) : undefined
             }
             className='overflow-hidden'
-            eyebrow='Inspector'
-            title='Properties'
+            eyebrow='Workspace'
+            title='Inspector'
           >
-            <ElementPropertiesPanel
-              element={selectedElement}
-              onElementChange={handleElementChange}
-            />
-          </Panel>
+            <div className='mb-4 flex flex-wrap gap-2 border-b border-ui-border pb-4'>
+              {inspectorTabs.map((tab) => (
+                <Button
+                  key={tab.id}
+                  aria-selected={activeInspectorTab === tab.id}
+                  data-selected={activeInspectorTab === tab.id ? 'true' : undefined}
+                  onClick={() => {
+                    setActiveInspectorTab(tab.id)
+                  }}
+                  variant={activeInspectorTab === tab.id ? 'selected' : 'ghost'}
+                >
+                  {tab.label}
+                </Button>
+              ))}
+            </div>
 
-          <Panel className='overflow-hidden' eyebrow='Data' title='Preview data'>
-            {selectedTemplate ? (
-              <PreviewDataPanel
-                onTemplateChange={handleTemplateChange}
-                template={selectedTemplate}
+            {activeInspectorTab === 'inspector' ? (
+              <ElementPropertiesPanel
+                element={selectedElement}
+                onElementChange={handleElementChange}
               />
-            ) : (
-              <EmptyState
-                description='Select a template to inspect preview, fallback and resolved values.'
-                title='No editable fields yet'
-              />
-            )}
-          </Panel>
+            ) : null}
 
-          <Panel className='overflow-hidden' eyebrow='Bindings' title='Editable fields & bindings'>
-            {selectedTemplate ? (
-              <EditableBindingsPanel
-                onTemplateChange={handleTemplateChange}
-                template={selectedTemplate}
-              />
-            ) : (
-              <EmptyState
-                description='Select a template to manage editable labels and field bindings.'
-                title='No editable fields yet'
-              />
-            )}
-          </Panel>
+            {activeInspectorTab === 'data' ? (
+              selectedTemplate ? (
+                <PreviewDataPanel
+                  onTemplateChange={handleTemplateChange}
+                  template={selectedTemplate}
+                />
+              ) : (
+                <EmptyState
+                  description='Select a template to inspect preview, fallback and resolved values.'
+                  title='No editable fields yet'
+                />
+              )
+            ) : null}
 
-          <Panel className='overflow-hidden' eyebrow='OnAir' title='OnAir metadata'>
-            {selectedTemplate ? (
-              <OnAirMetadataPanel
-                onTemplateChange={handleTemplateChange}
-                template={selectedTemplate}
-              />
-            ) : (
-              <EmptyState
-                description='Select a template to inspect runtime metadata.'
-                title='No template selected'
-              />
-            )}
+            {activeInspectorTab === 'bindings' ? (
+              selectedTemplate ? (
+                <EditableBindingsPanel
+                  onTemplateChange={handleTemplateChange}
+                  template={selectedTemplate}
+                />
+              ) : (
+                <EmptyState
+                  description='Select a template to manage editable labels and field bindings.'
+                  title='No editable fields yet'
+                />
+              )
+            ) : null}
+
+            {activeInspectorTab === 'onair' ? (
+              selectedTemplate ? (
+                <OnAirMetadataPanel
+                  onTemplateChange={handleTemplateChange}
+                  template={selectedTemplate}
+                />
+              ) : (
+                <EmptyState
+                  description='Select a template to inspect runtime metadata.'
+                  title='No template selected'
+                />
+              )
+            ) : null}
           </Panel>
         </section>
       </div>

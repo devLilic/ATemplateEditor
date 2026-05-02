@@ -94,11 +94,10 @@ describe('TemplateEditorShell', () => {
     const view = await renderTemplateEditorShell()
 
     try {
-      expect(view.container.textContent).toContain('ATemplateEditor')
       expect(view.container.textContent).toContain('Template Library')
       expect(view.container.textContent).toContain('Preview')
       expect(view.container.textContent).toContain('Layers')
-      expect(view.container.textContent).toContain('Properties')
+      expect(view.container.textContent).toContain('Inspector')
     } finally {
       await view.cleanup()
     }
@@ -120,7 +119,7 @@ describe('TemplateEditorShell', () => {
     const view = await renderTemplateEditorShell()
 
     try {
-      const newTemplateButton = findByExactText(view.container, 'New template')
+      const newTemplateButton = findByExactText(view.container, 'Create template')
 
       expect(newTemplateButton).toBeDefined()
 
@@ -146,7 +145,7 @@ describe('TemplateEditorShell', () => {
     const view = await renderTemplateEditorShell()
 
     try {
-      const newTemplateButton = findByExactText(view.container, 'New template')
+      const newTemplateButton = findByExactText(view.container, 'Create template')
 
       expect(newTemplateButton).toBeDefined()
       expect(findAllByExactText(view.container, 'Default template')).toHaveLength(1)

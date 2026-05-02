@@ -20,87 +20,14 @@ function findByExactText(container: ParentNode, text: string) {
   return findAllByExactText(container, text)[0]
 }
 
-function hasSelectedMarker(element: HTMLElement | null | undefined) {
-  let current = element
-
-  while (current) {
-    if (
-      current.getAttribute('aria-selected') === 'true' ||
-      current.getAttribute('data-selected') === 'true'
-    ) {
-      return true
-    }
-
-    current = current.parentElement
-  }
-
-  return false
+function findButtonByText(container: ParentNode, text: string) {
+  return Array.from(container.querySelectorAll('button')).find(
+    (element) => element.textContent?.trim() === text,
+  ) as HTMLButtonElement | undefined
 }
 
-async function renderTemplateEditorShell(
-  options: {
-    clearInitialElementSelection?: boolean
-    emptyLibrary?: boolean
-    emptyTemplate?: boolean
-  } = {},
-) {
+async function renderTemplateEditorShell() {
   vi.resetModules()
-
-  if (options.emptyLibrary) {
-    vi.doMock('@/features/template-library', async () => {
-      const actual =
-        await vi.importActual<typeof import('@/features/template-library')>('@/features/template-library')
-
-      return {
-        ...actual,
-        createTemplateLibraryState() {
-          return {
-            templates: [],
-            selectedTemplateId: undefined,
-          }
-        },
-        getSelectedTemplate() {
-          return undefined
-        },
-      }
-    })
-  }
-
-  if (options.emptyTemplate) {
-    vi.doMock('@/shared/template-contract/templateDefaults', async () => {
-      const contract =
-        await vi.importActual<typeof import('@/shared/template-contract/templateContract')>(
-          '@/shared/template-contract/templateContract',
-        )
-
-      return {
-        createDefaultTemplate() {
-          return contract.createEmptyTemplate({
-            name: 'Empty template',
-          })
-        },
-      }
-    })
-  }
-
-  if (options.clearInitialElementSelection) {
-    vi.doMock('@/features/template-state', async () => {
-      const actual =
-        await vi.importActual<typeof import('@/features/template-state')>('@/features/template-state')
-
-      return {
-        ...actual,
-        createTemplateEditorState(template: Parameters<typeof actual.createTemplateEditorState>[0]) {
-          const state = actual.createTemplateEditorState(template)
-
-          return {
-            ...state,
-            selectedElementId: undefined,
-          }
-        },
-      }
-    })
-  }
 
   const module = await import('./TemplateEditorShell')
   const TemplateEditorShell = module.TemplateEditorShell ?? module.default
@@ -129,90 +56,68 @@ async function renderTemplateEditorShell(
 afterEach(() => {
   document.body.innerHTML = ''
   vi.resetModules()
-  vi.doUnmock('@/features/template-library')
-  vi.doUnmock('@/features/template-state')
-  vi.doUnmock('@/shared/template-contract/templateDefaults')
 })
 
-describe('TemplateEditorShell polish', () => {
-  it('shows the header title and a workspace status label', async () => {
+describe('TemplateEditorShell workspace layout', () => {
+  it('does not render the old large title header copy', async () => {
     const view = await renderTemplateEditorShell()
 
     try {
-      expect(view.container.textContent).toContain('ATemplateEditor')
-      expect(view.container.textContent).toContain('Template workspace')
+      expect(view.container.textContent).not.toContain('ATemplateEditor')
+      expect(view.container.textContent).not.toContain('Template JSON editor for broadcast graphics')
     } finally {
       await view.cleanup()
     }
   })
 
-  it('renders all major editor panels', async () => {
+  it('renders a full-screen workspace root with the expected test id', async () => {
     const view = await renderTemplateEditorShell()
 
     try {
-      expect(view.container.textContent).toContain('Template Library')
-      expect(view.container.textContent).toContain('Preview')
-      expect(view.container.textContent).toContain('Layers')
-      expect(view.container.textContent).toContain('Properties')
-      expect(view.container.textContent).toContain('Preview data')
-      expect(view.container.textContent).toContain('Editable fields & bindings')
-      expect(view.container.textContent).toContain('OnAir metadata')
+      const workspace = view.container.querySelector('[data-testid="template-workspace"]') as
+        | HTMLElement
+        | null
+
+      expect(workspace).not.toBeNull()
+      expect(workspace?.className).toContain('h-screen')
+      expect(workspace?.className).toContain('w-screen')
     } finally {
       await view.cleanup()
     }
   })
 
-  it('shows clear empty states for missing templates, layers, editable fields, and element selection', async () => {
-    const emptyLibraryView = await renderTemplateEditorShell({
-      emptyLibrary: true,
-    })
-
-    try {
-      expect(emptyLibraryView.container.textContent).toContain('No templates')
-    } finally {
-      await emptyLibraryView.cleanup()
-    }
-
-    const emptyTemplateView = await renderTemplateEditorShell({
-      emptyTemplate: true,
-      clearInitialElementSelection: true,
-    })
-
-    try {
-      expect(emptyTemplateView.container.textContent).toContain('No layers')
-      expect(emptyTemplateView.container.textContent).toContain('No editable fields')
-      expect(emptyTemplateView.container.textContent).toContain('Select an element to edit properties')
-    } finally {
-      await emptyTemplateView.cleanup()
-    }
-  })
-
-  it('uses clear text labels for the main controls', async () => {
+  it('renders right-panel tabs for Inspector, Data, Bindings, and OnAir', async () => {
     const view = await renderTemplateEditorShell()
 
     try {
-      expect(findByExactText(view.container, 'New template')?.tagName).toBe('BUTTON')
-      expect(findByExactText(view.container, 'Export JSON')?.tagName).toBe('BUTTON')
-      expect(findByExactText(view.container, 'Import JSON')?.tagName).toBe('BUTTON')
-      expect(findByExactText(view.container, 'Apply sample data')?.tagName).toBe('BUTTON')
+      expect(findButtonByText(view.container, 'Inspector')?.tagName).toBe('BUTTON')
+      expect(findButtonByText(view.container, 'Data')?.tagName).toBe('BUTTON')
+      expect(findButtonByText(view.container, 'Bindings')?.tagName).toBe('BUTTON')
+      expect(findButtonByText(view.container, 'OnAir')?.tagName).toBe('BUTTON')
     } finally {
       await view.cleanup()
     }
   })
 
-  it('uses button elements and selected markers for selectable items', async () => {
+  it('shows only the active right-panel tab content', async () => {
     const view = await renderTemplateEditorShell()
 
     try {
-      const newTemplateButton = findByExactText(view.container, 'New template')
-      const defaultTemplate = findByExactText(view.container, 'Default template')
-      const mainLayer = findByExactText(view.container, 'Main Layer')
+      expect(view.container.textContent).toContain('Common')
+      expect(view.container.textContent).not.toContain('Apply sample data')
+      expect(view.container.textContent).not.toContain('Add text field')
+      expect(view.container.textContent).not.toContain('Clear OSC commands')
+    } finally {
+      await view.cleanup()
+    }
+  })
 
-      expect(newTemplateButton?.tagName).toBe('BUTTON')
-      expect(defaultTemplate?.tagName).toBe('BUTTON')
-      expect(mainLayer?.tagName).toBe('BUTTON')
-      expect(hasSelectedMarker(defaultTemplate)).toBe(true)
-      expect(hasSelectedMarker(mainLayer)).toBe(true)
+  it('does not use New template or Save template as the main header actions', async () => {
+    const view = await renderTemplateEditorShell()
+
+    try {
+      expect(view.container.textContent).not.toContain('New template')
+      expect(view.container.textContent).not.toContain('Save template')
     } finally {
       await view.cleanup()
     }
