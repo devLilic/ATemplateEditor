@@ -1,8 +1,12 @@
 import { Badge } from '@/shared/ui/Badge'
+import { PreviewCanvas } from '@/shared/preview16x9'
+import { createDefaultTemplate } from '@/shared/template-contract/templateDefaults'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Panel } from '@/shared/ui/Panel'
 import './App.css'
+
+const defaultPreviewTemplate = createDefaultTemplate()
 
 function App() {
   return (
@@ -40,9 +44,10 @@ function App() {
             eyebrow='Workspace'
             title='Preview Workspace'
           >
-            <EmptyState
-              description='Template output will render in this workspace once preview infrastructure is added.'
-              title='Preview16x9 will appear here'
+            <PreviewCanvas
+              height={540}
+              template={defaultPreviewTemplate}
+              width={960}
             />
           </Panel>
 
@@ -51,7 +56,7 @@ function App() {
             contentClassName='flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3'
           >
             <span className='text-sm text-ui-secondary'>Status</span>
-            <span className='text-sm text-ui-disabled'>No template loaded</span>
+            <span className='text-sm text-ui-disabled'>Default template preview loaded</span>
           </Panel>
         </section>
 
