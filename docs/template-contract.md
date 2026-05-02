@@ -81,4 +81,14 @@ The base validator returns an object with `valid` and `errors`. Each error inclu
 - Renaming the `key` of an editable field updates the bindings that referenced the previous key.
 - `editableFields` and `bindings` are part of the shared template contract used between authoring and downstream applications.
 
+## OnAir Metadata Bridge
+
+- `onAir` metadata is configuration only for the future `OnAir Player`.
+- `TemplateEditor` does not send OSC and does not execute playout commands.
+- `osc.enabled` does not start OSC transmission inside `TemplateEditor`.
+- `osc.playCommand` and `osc.stopCommand` are stored as metadata only.
+- `onAir.durationMs` can be used by `OnAir Player` for runtime behaviors such as auto-hide.
+- `onAir.prerollMs` and `onAir.postrollMs` are informative timing values for runtime integration.
+- This section is read by `OnAir Player`; it is not executed by `TemplateEditor`.
+
 This document intentionally stays minimal until the contract evolves through implementation tasks.

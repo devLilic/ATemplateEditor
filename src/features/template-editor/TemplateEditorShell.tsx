@@ -17,6 +17,7 @@ import {
 } from '@/features/template-state'
 import { EditableBindingsPanel } from './EditableBindingsPanel'
 import { ElementPropertiesPanel } from './ElementPropertiesPanel'
+import { OnAirMetadataPanel } from './OnAirMetadataPanel'
 import { PreviewDataPanel } from './PreviewDataPanel'
 import { PreviewCanvas } from '@/shared/preview16x9'
 import { createDefaultTemplate } from '@/shared/template-contract/templateDefaults'
@@ -334,6 +335,15 @@ export function TemplateEditorShell() {
           {selectedTemplate ? (
             <Panel eyebrow='Bindings' title='Editable fields & bindings'>
               <EditableBindingsPanel
+                onTemplateChange={handleTemplateChange}
+                template={selectedTemplate}
+              />
+            </Panel>
+          ) : null}
+
+          {selectedTemplate ? (
+            <Panel eyebrow='OnAir' title='OnAir metadata'>
+              <OnAirMetadataPanel
                 onTemplateChange={handleTemplateChange}
                 template={selectedTemplate}
               />
