@@ -151,10 +151,18 @@ export function calculatePreviewLayout(
 
       if (element.kind === 'image') {
         const imageRuntimeStyle = element as TemplateImageElement & ImageRuntimeStyle
+        const linkedAsset = element.assetId
+          ? template.assets.find((asset) => asset.id === element.assetId)
+          : undefined
+        const content = linkedAsset
+          ? linkedAsset.name
+          : element.assetId
+            ? 'Missing image asset'
+            : 'Image placeholder'
 
         return {
           element,
-          content: element.assetId ? `Image: ${element.assetId}` : 'Image placeholder',
+          content,
           style: {
             ...baseStyle,
             alignItems: 'center',

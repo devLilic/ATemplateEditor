@@ -82,8 +82,27 @@ export interface TemplateShapeElement extends TemplateElementBase {
 
 export type TemplateElement = TemplateTextElement | TemplateImageElement | TemplateShapeElement
 
+export type TemplateAssetType = 'image'
+
+export type TemplateAssetSourceType = 'local' | 'remote' | 'data'
+
+export interface TemplateAssetSource {
+  type: TemplateAssetSourceType
+  value: string
+}
+
+export interface TemplateAssetMetadata {
+  width?: number
+  height?: number
+  mimeType?: string
+}
+
 export interface TemplateAsset {
   id: string
+  name: string
+  type: TemplateAssetType
+  source: TemplateAssetSource
+  metadata?: TemplateAssetMetadata
 }
 
 export interface TemplateEditableField {
