@@ -16,6 +16,7 @@ import {
   type TemplateEditorState,
 } from '@/features/template-state'
 import { ElementPropertiesPanel } from './ElementPropertiesPanel'
+import { PreviewDataPanel } from './PreviewDataPanel'
 import { PreviewCanvas } from '@/shared/preview16x9'
 import { createDefaultTemplate } from '@/shared/template-contract/templateDefaults'
 import { Badge } from '@/shared/ui/Badge'
@@ -73,6 +74,26 @@ export function TemplateEditorShell() {
       })
 
       return nextState
+    })
+  }
+
+  const handleTemplatePreviewDataChange = (nextTemplate: Parameters<typeof createTemplateEditorState>[0]) => {
+    if (!selectedTemplate) {
+      return
+    }
+
+    setLibraryState((currentLibraryState) =>
+      updateTemplate(currentLibraryState, selectedTemplate.id, () => nextTemplate),
+    )
+    setEditorState((currentEditorState) => {
+      if (!currentEditorState) {
+        return createTemplateEditorState(nextTemplate)
+      }
+
+      return {
+        ...currentEditorState,
+        template: nextTemplate,
+      }
     })
   }
 
@@ -288,16 +309,27 @@ export function TemplateEditorShell() {
           </Panel>
         </section>
 
-        <Panel
-          aside={selectedElement ? <Badge variant='selected'>Selected</Badge> : undefined}
-          eyebrow='Inspector'
-          title='Properties'
-        >
-          <ElementPropertiesPanel
-            element={selectedElement}
-            onElementChange={handleElementChange}
-          />
-        </Panel>
+        <section className='flex min-h-0 flex-col gap-3'>
+          <Panel
+            aside={selectedElement ? <Badge variant='selected'>Selected</Badge> : undefined}
+            eyebrow='Inspector'
+            title='Properties'
+          >
+            <ElementPropertiesPanel
+              element={selectedElement}
+              onElementChange={handleElementChange}
+            />
+          </Panel>
+
+          {selectedTemplate ? (
+            <Panel eyebrow='Data' title='Preview data'>
+              <PreviewDataPanel
+                onTemplateChange={handleTemplatePreviewDataChange}
+                template={selectedTemplate}
+              />
+            </Panel>
+          ) : null}
+        </section>
       </div>
     </main>
   )

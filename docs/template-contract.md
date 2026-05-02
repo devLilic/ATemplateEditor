@@ -57,4 +57,16 @@ The base validator returns an object with `valid` and `errors`. Each error inclu
 - Import preserves the template `id`; importing an exported template keeps the same identifier.
 - The current editor UI exposes export and import through textareas. It does not use a file picker yet.
 
+## Preview Data And Fallback Values
+
+- `previewData` is used only for preview inside `TemplateEditor`.
+- `fallbackValues` is used when real data is missing for a field or binding target.
+- Value resolution priority is:
+  1. `previewData`
+  2. `fallbackValues`
+  3. `editableField.defaultValue`
+  4. `""`
+- `previewData` is not real playout data and should not be treated as on-air content.
+- `TitleEditor` will produce the real data payloads in the separate application flow.
+
 This document intentionally stays minimal until the contract evolves through implementation tasks.
