@@ -5,7 +5,7 @@ export function createCoreMainModule(): MainModule {
   return {
     id: 'core',
     register(context) {
-      registerCoreIpc(context.config)
+      registerCoreIpc(context.config, context.getMainWindow)
     },
   }
 }

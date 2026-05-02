@@ -46,9 +46,58 @@ async function renderLayersPanel() {
   }
 }
 
+async function renderSingleLayerPanel() {
+  const module = await import('./LayersPanel')
+  const LayersPanel = module.LayersPanel
+
+  const layer = createLayer({ name: 'Only Layer', type: 'text', zIndex: 0 })
+  const onlyElement = {
+    ...createTextElement({
+      layerId: layer.id,
+      name: 'Only text',
+    }),
+    fallbackText: 'Only text',
+  }
+  const template = {
+    ...createEmptyTemplate({ name: 'Single layer template' }),
+    layers: [layer],
+    elements: [onlyElement],
+  }
+  const onTemplateChange = vi.fn()
+  const onSelectLayer = vi.fn()
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+
+  let root: Root
+
+  await act(async () => {
+    root = createRoot(container)
+    root.render(
+      <LayersPanel
+        onSelectLayer={onSelectLayer}
+        onTemplateChange={onTemplateChange}
+        selectedLayerId={layer.id}
+        template={template}
+      />,
+    )
+  })
+
+  return {
+    container,
+    onTemplateChange,
+    template,
+    cleanup: async () => {
+      await act(async () => {
+        root.unmount()
+      })
+      container.remove()
+    },
+  }
+}
+
 function createTemplateWithTwoLayers() {
-  const bottomLayer = createLayer({ name: 'Background', zIndex: 0 })
-  const topLayer = createLayer({ name: 'Headline', zIndex: 1 })
+  const bottomLayer = createLayer({ name: 'Background', type: 'background', zIndex: 0 })
+  const topLayer = createLayer({ name: 'Headline', type: 'text', zIndex: 1 })
   const backgroundText = {
     ...createTextElement({
       layerId: bottomLayer.id,
@@ -104,6 +153,8 @@ describe('LayersPanel', () => {
     try {
       expect(view.container.textContent).toContain('Background')
       expect(view.container.textContent).toContain('Headline')
+      expect(view.container.textContent).toContain('background')
+      expect(view.container.textContent).toContain('text')
       expect(view.container.textContent).toContain('0')
       expect(view.container.textContent).toContain('1')
       expect(view.container.querySelectorAll('input[aria-label^="Visible "]')).toHaveLength(2)
@@ -191,6 +242,75 @@ describe('LayersPanel', () => {
           ]),
         }),
       )
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('renders a delete layer control for the selected layer', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const deleteButton = view.container.querySelector('button[aria-label^="Delete layer "]')
+
+      expect(deleteButton).not.toBeNull()
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('deletes the selected layer and removes its elements from the template', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const selectedLayer = view.template.layers[1]!
+      const deleteButton = view.container.querySelector(
+        `button[aria-label="Delete layer ${selectedLayer.name}"]`,
+      ) as HTMLButtonElement | null
+
+      expect(deleteButton).not.toBeNull()
+
+      await act(async () => {
+        deleteButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(view.onTemplateChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layers: [
+            expect.objectContaining({
+              id: view.template.layers[0]!.id,
+            }),
+          ],
+          elements: [
+            expect.objectContaining({
+              layerId: view.template.layers[0]!.id,
+            }),
+          ],
+        }),
+      )
+      expect(view.onTemplateChange.mock.calls[0]?.[0]?.layers).toHaveLength(1)
+      expect(view.onTemplateChange.mock.calls[0]?.[0]?.elements).toHaveLength(1)
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('does not allow deleting the last remaining layer', async () => {
+    const view = await renderSingleLayerPanel()
+
+    try {
+      const deleteButton = view.container.querySelector(
+        `button[aria-label="Delete layer ${view.template.layers[0]!.name}"]`,
+      ) as HTMLButtonElement | null
+
+      expect(deleteButton).not.toBeNull()
+      expect(deleteButton?.disabled).toBe(true)
+
+      await act(async () => {
+        deleteButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(view.onTemplateChange).not.toHaveBeenCalled()
     } finally {
       await view.cleanup()
     }

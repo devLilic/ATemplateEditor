@@ -1,5 +1,6 @@
 import type { AppConfig } from '../../../config/types'
 import type {
+  AssetsImportImageResult,
   AppInfoPayload,
   DatabaseQueryPayload,
   DatabaseQueryResult,
@@ -27,6 +28,9 @@ declare global {
       getAppInfo: () => Promise<AppInfoPayload>
       onMainProcessMessage: (listener: (message: string) => void) => () => void
       openWindow: (route: string) => Promise<void>
+    }
+    assetsApi: {
+      importImageAsset: () => Promise<AssetsImportImageResult | null>
     }
     updateApi: {
       checkForUpdates: () => Promise<unknown>

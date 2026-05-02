@@ -377,6 +377,34 @@ describe('template validation', () => {
     )
   })
 
+  it('rejects a layer without type', () => {
+    const layer = { ...createLayer({ name: 'Main' }) } as Partial<ReturnType<typeof createLayer>>
+    delete layer.type
+
+    expectInvalidTemplate(
+      {
+        ...createDefaultTemplate(),
+        layers: [layer as ReturnType<typeof createLayer>],
+      },
+      'layers[0].type',
+    )
+  })
+
+  it('rejects a layer with invalid type', () => {
+    expectInvalidTemplate(
+      {
+        ...createDefaultTemplate(),
+        layers: [
+          {
+            ...createLayer({ name: 'Main' }),
+            type: 'overlay',
+          } as unknown as ReturnType<typeof createLayer>,
+        ],
+      },
+      'layers[0].type',
+    )
+  })
+
   it('rejects a layer when visible is not boolean', () => {
     expectInvalidTemplate(
       {

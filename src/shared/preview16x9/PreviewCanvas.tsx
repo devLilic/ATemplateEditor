@@ -151,8 +151,9 @@ function sortElementsByLayer(template: TemplateContract) {
   })
 }
 
-function getReferenceFrameAsset(template: TemplateContract): TemplateAsset | undefined {
-  const assetId = template.metadata.referenceFrameAssetId
+function getPreviewBackgroundAsset(template: TemplateContract): TemplateAsset | undefined {
+  const assetId =
+    template.metadata.previewBackgroundAssetId ?? template.metadata.referenceFrameAssetId
 
   if (!assetId) {
     return undefined
@@ -440,7 +441,7 @@ function renderElement(layout: PreviewElementLayout, template: TemplateContract)
 export function PreviewCanvas({ template, width, height, className }: PreviewCanvasProps) {
   const frame = calculatePreviewFrame(template.canvas.width, template.canvas.height, width, height)
   const layout = calculatePreviewLayout(template, frame)
-  const referenceFrameAsset = getReferenceFrameAsset(template)
+  const previewBackgroundAsset = getPreviewBackgroundAsset(template)
 
   return (
     <div
@@ -466,11 +467,11 @@ export function PreviewCanvas({ template, width, height, className }: PreviewCan
           background: '#111827',
         }}
       >
-        {referenceFrameAsset ? (
+        {previewBackgroundAsset ? (
           <img
             alt=''
             aria-hidden='true'
-            src={referenceFrameAsset.source.value}
+            src={previewBackgroundAsset.source.value}
             style={{
               position: 'absolute',
               inset: 0,

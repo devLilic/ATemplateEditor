@@ -6,9 +6,12 @@ export interface TemplateCanvas {
   height: number
 }
 
+export type TemplateLayerType = 'text' | 'background' | 'image'
+
 export interface TemplateLayer {
   id: string
   name: string
+  type: TemplateLayerType
   visible: boolean
   locked: boolean
   zIndex: number
@@ -102,6 +105,8 @@ export interface TemplateAssetMetadata {
   width?: number
   height?: number
   mimeType?: string
+  originalFileName?: string
+  storedAt?: string
 }
 
 export interface TemplateAsset {
@@ -152,6 +157,7 @@ export interface TemplateMetadata {
   author?: string
   description?: string
   referenceFrameAssetId?: string
+  previewBackgroundAssetId?: string
 }
 
 export interface TemplateContract {
@@ -179,6 +185,7 @@ interface CreateEmptyTemplateInput {
 
 interface CreateLayerInput {
   name?: string
+  type?: TemplateLayerType
   zIndex?: number
 }
 
@@ -220,6 +227,7 @@ export function createLayer(input: CreateLayerInput = {}): TemplateLayer {
   return {
     id: createLayerId(),
     name: input.name ?? 'Layer',
+    type: input.type ?? 'text',
     visible: true,
     locked: false,
     zIndex: input.zIndex ?? 0,
@@ -263,6 +271,7 @@ export function createEmptyTemplate(input: CreateEmptyTemplateInput = {}): Templ
       author: undefined,
       description: undefined,
       referenceFrameAssetId: undefined,
+      previewBackgroundAssetId: undefined,
     },
   }
 }

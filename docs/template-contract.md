@@ -61,6 +61,7 @@ Each layer contains:
 
 - `id`
 - `name`
+- `type`
 - `visible`
 - `locked`
 - `zIndex`
@@ -70,10 +71,20 @@ Layer responsibilities:
 
 - `id` is the stable identifier referenced by elements.
 - `name` is the editor-facing label.
+- `type` classifies the layer as one of:
+  - `text`
+  - `background`
+  - `image`
 - `visible` controls whether the layer should be shown.
 - `locked` marks the layer as protected from editing interactions.
 - `zIndex` defines layer order.
 - `opacity` defines layer transparency.
+
+Current layer type intent:
+
+- `text` is the default layer type for title and label content
+- `background` is intended for boxes, plates, and other backing graphics
+- `image` is intended for logo, photo, or media-oriented layers
 
 ## Elements
 
@@ -181,6 +192,12 @@ For image workflows:
 - `image` elements may contain `assetId`
 - if `assetId` resolves to an asset in `assets`, the element is considered linked
 - if `assetId` is missing or unresolved, the preview currently falls back to placeholder behavior
+- imported image files are copied into an application-managed assets folder
+- those persisted image assets use `asset.source.type = local`
+- in that case, `asset.source.value` stores the saved file path used by the editor and runtime tools
+- `metadata.previewBackgroundAssetId` may reference one asset used only as a preview background guide
+- the preview background is not a template element and is not an exportable graphic layer
+- the preview background can be set or cleared from `AssetsPanel` without changing `elements`
 
 ## Editable Fields
 
@@ -329,6 +346,7 @@ It currently provides:
     {
       "id": "layer-main",
       "name": "Main Layer",
+      "type": "text",
       "visible": true,
       "locked": false,
       "zIndex": 0,
@@ -454,6 +472,7 @@ The validator returns an object with `valid` and `errors`. Each error includes a
 - Required root fields include `schemaVersion`, `id`, `name`, `canvas`, `layers`, `elements`, `assets`, `editableFields`, and `bindings`.
 - `canvas.width` and `canvas.height` must be numbers greater than `0`.
 - `layers` must be an array. Each layer requires a non-empty `id` and `name`, boolean `visible` and `locked`, numeric `zIndex`, and `opacity` between `0` and `1`.
+- `layer.type` is required and must be one of `text`, `background`, or `image`.
 - `elements` must be an array. Each element requires a non-empty `id`, `layerId`, `kind`, and `name`, valid `position` and `size`, boolean `visible` and `locked`, and kind-specific fields for `text`, `image`, or `shape`.
 - Each element `layerId` must reference an existing layer id.
 - `editableFields` must be an array. Each field requires a non-empty `id`, `key`, and `label`, a valid `type`, and boolean `required`.

@@ -87,6 +87,11 @@ For image elements, the current preview supports template-linked asset metadata 
 
 - image elements may reference assets through `assetId`
 - preview can show placeholder information for linked or missing assets
+- persisted image assets may use `source.type = local`, with `source.value` pointing to a file copied into the application assets folder
+- `PreviewCanvas` can also show a preview background asset referenced by `metadata.previewBackgroundAssetId`
+- that preview background is only a positioning guide rendered behind template elements
+- the preview background is not a graphic element and is not exported as a layer
+- the preview background can be set or cleared from `AssetsPanel`
 - the module does not resolve complex real file paths yet
 - the module does not implement a full asset loading pipeline yet
 

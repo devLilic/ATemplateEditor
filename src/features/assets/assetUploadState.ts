@@ -1,6 +1,10 @@
 import {
+  clearPreviewBackgroundAsset as clearPreviewBackgroundAssetFromRegistry,
   createAsset,
+  createAssetFromStoredFileReference as createStoredAsset,
   getAssetById,
+  getPreviewBackgroundAsset as getPreviewBackgroundAssetFromRegistry,
+  setPreviewBackgroundAsset as setPreviewBackgroundAssetInRegistry,
 } from './assetsRegistry'
 import type {
   TemplateAsset,
@@ -45,6 +49,15 @@ export function createAssetFromFileReference(
     source,
     metadata,
   })
+}
+
+export function createAssetFromStoredFileReference(input: {
+  name?: string
+  filePath?: string
+  path?: string
+  originalFileName?: string
+}) {
+  return createStoredAsset(input)
 }
 
 export function setImageElementAsset(
@@ -100,4 +113,19 @@ export function getReferenceFrameAsset(template: TemplateContract): TemplateAsse
   }
 
   return getAssetById(template, assetId)
+}
+
+export function setPreviewBackgroundAsset(
+  template: TemplateContract,
+  assetId: string,
+): TemplateContract {
+  return setPreviewBackgroundAssetInRegistry(template, assetId)
+}
+
+export function clearPreviewBackgroundAsset(template: TemplateContract): TemplateContract {
+  return clearPreviewBackgroundAssetFromRegistry(template)
+}
+
+export function getPreviewBackgroundAsset(template: TemplateContract): TemplateAsset | undefined {
+  return getPreviewBackgroundAssetFromRegistry(template)
 }

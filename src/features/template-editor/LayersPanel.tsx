@@ -2,6 +2,7 @@ import { useState, type DragEvent } from 'react'
 import type { TemplateContract, TemplateLayer } from '@/shared/template-contract/templateContract'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
+import { createTemplateEditorState, removeLayer } from '@/features/template-state'
 import { reorderLayersFromTopList } from './layersPanelState'
 
 export interface LayersPanelProps {
@@ -9,10 +10,23 @@ export interface LayersPanelProps {
   selectedLayerId?: string
   onSelectLayer: (layerId: string) => void
   onTemplateChange: (template: TemplateContract) => void
+  onDeleteLayer?: (layerId: string) => void
 }
 
 function sortLayersTopToBottom(layers: TemplateLayer[]) {
   return [...layers].sort((left, right) => right.zIndex - left.zIndex)
+}
+
+function getLayerTypeBadgeVariant(layerType: TemplateLayer['type']) {
+  if (layerType === 'background') {
+    return 'muted'
+  }
+
+  if (layerType === 'image') {
+    return 'active'
+  }
+
+  return 'selected'
 }
 
 function updateLayer(
@@ -39,6 +53,7 @@ export function LayersPanel({
   selectedLayerId,
   onSelectLayer,
   onTemplateChange,
+  onDeleteLayer,
 }: LayersPanelProps) {
   const [draggedLayerId, setDraggedLayerId] = useState<string>()
   const orderedLayers = sortLayersTopToBottom(template.layers)
@@ -78,6 +93,7 @@ export function LayersPanel({
     <div className='flex flex-col gap-2' role='listbox' aria-label='Layers'>
       {orderedLayers.map((layer) => {
         const isSelected = layer.id === selectedLayerId
+        const canDeleteLayer = template.layers.length > 1
 
         return (
           <div
@@ -109,6 +125,7 @@ export function LayersPanel({
               >
                 <span className='truncate'>{layer.name}</span>
               </Button>
+              <Badge variant={getLayerTypeBadgeVariant(layer.type)}>{layer.type}</Badge>
               <Badge variant={isSelected ? 'selected' : 'muted'}>{layer.zIndex}</Badge>
             </div>
 
@@ -142,6 +159,29 @@ export function LayersPanel({
                   type='checkbox'
                 />
               </label>
+            </div>
+
+            <div className='mt-2'>
+              <Button
+                aria-label={`Delete layer ${layer.name}`}
+                className='w-full justify-center'
+                disabled={!canDeleteLayer}
+                onClick={() => {
+                  if (!canDeleteLayer) {
+                    return
+                  }
+
+                  if (onDeleteLayer) {
+                    onDeleteLayer(layer.id)
+                    return
+                  }
+
+                  onTemplateChange(removeLayer(createTemplateEditorState(template), layer.id).template)
+                }}
+                variant='ghost'
+              >
+                Delete
+              </Button>
             </div>
           </div>
         )

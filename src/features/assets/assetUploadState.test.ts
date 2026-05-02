@@ -45,6 +45,21 @@ function createTemplateFixture() {
 }
 
 describe('assetUploadState', () => {
+  it('createAssetFromStoredFileReference creates an image asset from a persisted local file', async () => {
+    const { createAssetFromStoredFileReference } = await loadAssetUploadStateModule()
+    const asset = createAssetFromStoredFileReference({
+      path: 'assets/reference-frame.png',
+    })
+
+    expect(asset.id).toBeTruthy()
+    expect(asset.type).toBe('image')
+    expect(asset.name).toBe('reference-frame.png')
+    expect(asset.source).toEqual({
+      type: 'local',
+      value: 'assets/reference-frame.png',
+    })
+  })
+
   it('createAssetFromFileReference creates an image asset', async () => {
     const { createAssetFromFileReference } = await loadAssetUploadStateModule()
     const asset = createAssetFromFileReference({
@@ -144,5 +159,65 @@ describe('assetUploadState', () => {
     expect(
       nextTemplate.metadata.referenceFrameAssetId ?? nextTemplate.previewSettings?.referenceFrameAssetId,
     ).toBeUndefined()
+  })
+
+  it('setPreviewBackgroundAsset stores the selected preview background asset immutably', async () => {
+    const { createAssetFromFileReference, setPreviewBackgroundAsset } = await loadAssetUploadStateModule()
+    const { template } = createTemplateFixture()
+    const asset = createAssetFromFileReference({
+      name: 'Preview Background',
+      path: 'C:/graphics/preview-background.png',
+    })
+    const templateWithAsset = addAsset(template, asset)
+    const nextTemplate = setPreviewBackgroundAsset(templateWithAsset, asset.id)
+
+    expect(nextTemplate).not.toBe(templateWithAsset)
+    expect(nextTemplate.metadata.previewBackgroundAssetId).toBe(asset.id)
+    expect(templateWithAsset.metadata.previewBackgroundAssetId).toBeUndefined()
+  })
+
+  it('setPreviewBackgroundAsset ignores unknown asset ids', async () => {
+    const { setPreviewBackgroundAsset } = await loadAssetUploadStateModule()
+    const { template } = createTemplateFixture()
+    const nextTemplate = setPreviewBackgroundAsset(template, 'missing-background')
+
+    expect(nextTemplate).toBe(template)
+    expect(nextTemplate.metadata.previewBackgroundAssetId).toBeUndefined()
+  })
+
+  it('clearPreviewBackgroundAsset removes the preview background immutably', async () => {
+    const { createAssetFromFileReference, setPreviewBackgroundAsset, clearPreviewBackgroundAsset } =
+      await loadAssetUploadStateModule()
+    const { template } = createTemplateFixture()
+    const asset = createAssetFromFileReference({
+      name: 'Preview Background',
+      path: 'C:/graphics/preview-background.png',
+    })
+    const templateWithBackground = setPreviewBackgroundAsset(addAsset(template, asset), asset.id)
+    const clearedTemplate = clearPreviewBackgroundAsset(templateWithBackground)
+
+    expect(clearedTemplate).not.toBe(templateWithBackground)
+    expect(clearedTemplate.metadata.previewBackgroundAssetId).toBeUndefined()
+    expect(templateWithBackground.metadata.previewBackgroundAssetId).toBe(asset.id)
+  })
+
+  it('getPreviewBackgroundAsset returns the configured preview background asset', async () => {
+    const { createAssetFromFileReference, setPreviewBackgroundAsset, getPreviewBackgroundAsset } =
+      await loadAssetUploadStateModule()
+    const { template } = createTemplateFixture()
+    const asset = createAssetFromFileReference({
+      name: 'Preview Background',
+      path: 'C:/graphics/preview-background.png',
+    })
+    const templateWithBackground = setPreviewBackgroundAsset(addAsset(template, asset), asset.id)
+
+    expect(getPreviewBackgroundAsset(templateWithBackground)).toEqual(asset)
+  })
+
+  it('getPreviewBackgroundAsset returns undefined when no preview background asset is configured', async () => {
+    const { getPreviewBackgroundAsset } = await loadAssetUploadStateModule()
+    const { template } = createTemplateFixture()
+
+    expect(getPreviewBackgroundAsset(template)).toBeUndefined()
   })
 })

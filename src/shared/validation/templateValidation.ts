@@ -45,6 +45,10 @@ function validateLayer(layer: unknown, index: number, errors: TemplateValidation
     addError(errors, `${path}.name`, 'Layer name must be a non-empty string.')
   }
 
+  if (!isLayerType(layer.type)) {
+    addError(errors, `${path}.type`, 'Layer type must be text, background, or image.')
+  }
+
   if (typeof layer.visible !== 'boolean') {
     addError(errors, `${path}.visible`, 'Layer visible must be a boolean.')
   }
@@ -66,6 +70,10 @@ function validateLayer(layer: unknown, index: number, errors: TemplateValidation
 
 function isTemplateElementKind(value: unknown) {
   return value === 'text' || value === 'image' || value === 'shape'
+}
+
+function isLayerType(value: unknown) {
+  return value === 'text' || value === 'background' || value === 'image'
 }
 
 function isTextAlign(value: unknown) {

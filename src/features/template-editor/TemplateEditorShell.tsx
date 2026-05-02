@@ -10,6 +10,7 @@ import {
 import { exportTemplateToJson, importTemplateFromJson } from '@/features/export-import'
 import {
   createTemplateEditorState,
+  removeLayer,
   selectElement,
   selectLayer,
   updateElement,
@@ -249,6 +250,35 @@ export function TemplateEditorShell() {
             {editorState && editorState.template.layers.length > 0 ? (
               <div className='flex flex-col gap-4'>
                 <LayersPanel
+                  onDeleteLayer={(layerId) => {
+                    setEditorState((currentState) => {
+                      if (!currentState) {
+                        return currentState
+                      }
+
+                      const nextState = removeLayer(currentState, layerId)
+
+                      if (nextState === currentState) {
+                        return currentState
+                      }
+
+                      setLibraryState((currentLibraryState) => {
+                        const currentTemplate = getSelectedTemplate(currentLibraryState)
+
+                        if (!currentTemplate) {
+                          return currentLibraryState
+                        }
+
+                        return updateTemplate(
+                          currentLibraryState,
+                          currentTemplate.id,
+                          () => nextState.template,
+                        )
+                      })
+
+                      return nextState
+                    })
+                  }}
                   onSelectLayer={(layerId) => {
                     setEditorState((currentState) =>
                       currentState ? selectLayer(currentState, layerId) : currentState,

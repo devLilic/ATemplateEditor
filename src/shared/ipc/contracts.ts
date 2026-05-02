@@ -13,6 +13,7 @@ import type { UpdateErrorPayload, UpdateStateEvent, VersionInfo } from '../types
 export const ipcInvokeChannels = {
   appGetInfo: 'app:get-info',
   appOpenWindow: 'app:open-window',
+  assetsImportImage: 'assets:import-image',
   i18nGetCurrentLanguage: 'i18n:get-current-language',
   i18nGetSupportedLanguages: 'i18n:get-supported-languages',
   i18nGetResources: 'i18n:get-resources',
@@ -29,6 +30,11 @@ export const ipcInvokeChannels = {
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
 } as const
+
+export interface AssetsImportImageResult {
+  filePath: string
+  originalFileName: string
+}
 
 export const ipcEventChannels = {
   appMainProcessMessage: 'app:main-process-message',
@@ -110,6 +116,10 @@ export interface IpcInvokeContract {
   [ipcInvokeChannels.appOpenWindow]: {
     request: { route: string }
     response: void
+  }
+  [ipcInvokeChannels.assetsImportImage]: {
+    request: void
+    response: AssetsImportImageResult | null
   }
   [ipcInvokeChannels.i18nGetCurrentLanguage]: {
     request: void

@@ -16,6 +16,7 @@ describe('default template factory', () => {
     expect(template.layers.length).toBeGreaterThanOrEqual(1)
     const mainLayer = template.layers[0]
     expect(mainLayer.name).toBe('Main Layer')
+    expect(mainLayer.type).toBe('text')
 
     const textElement = template.elements.find((element) => element.kind === 'text')
     expect(textElement).toBeDefined()

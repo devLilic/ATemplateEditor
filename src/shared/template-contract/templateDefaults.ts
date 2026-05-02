@@ -23,6 +23,7 @@ export function createDefaultTemplate(input: CreateDefaultTemplateInput = {}): T
   })
   const mainLayer = createLayer({
     name: 'Main Layer',
+    type: 'text',
     zIndex: 0,
   })
   const titleElement = createTextElement({

@@ -157,6 +157,7 @@ describe('template contract base', () => {
     expect(typeof layer.id).toBe('string')
     expect(layer.id.trim().length).toBeGreaterThan(0)
     expect(layer.name).toBe('Layer')
+    expect(layer.type).toBe('text')
     expect(layer.visible).toBe(true)
     expect(layer.locked).toBe(false)
     expect(layer.zIndex).toBe(0)
