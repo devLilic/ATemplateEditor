@@ -4,13 +4,16 @@ import {
   createAndAddTemplate,
   getSelectedTemplate,
   selectTemplate,
+  updateTemplate,
 } from '@/features/template-library'
 import {
   createTemplateEditorState,
   selectElement,
   selectLayer,
+  updateElement,
   type TemplateEditorState,
 } from '@/features/template-state'
+import { ElementPropertiesPanel } from './ElementPropertiesPanel'
 import { PreviewCanvas } from '@/shared/preview16x9'
 import { createDefaultTemplate } from '@/shared/template-contract/templateDefaults'
 import { Badge } from '@/shared/ui/Badge'
@@ -32,7 +35,7 @@ export function TemplateEditorShell() {
 
   useEffect(() => {
     setEditorState(selectedTemplate ? createTemplateEditorState(selectedTemplate) : undefined)
-  }, [selectedTemplate])
+  }, [selectedTemplate?.id])
 
   const selectedElement = useMemo(
     () =>
@@ -41,6 +44,32 @@ export function TemplateEditorShell() {
         : undefined,
     [editorState],
   )
+
+  const handleElementChange = (elementId: string, patch: Parameters<typeof updateElement>[2]) => {
+    setEditorState((currentState) => {
+      if (!currentState) {
+        return currentState
+      }
+
+      const nextState = updateElement(currentState, elementId, patch)
+
+      if (nextState === currentState) {
+        return currentState
+      }
+
+      setLibraryState((currentLibraryState) => {
+        const currentTemplate = getSelectedTemplate(currentLibraryState)
+
+        if (!currentTemplate) {
+          return currentLibraryState
+        }
+
+        return updateTemplate(currentLibraryState, currentTemplate.id, () => nextState.template)
+      })
+
+      return nextState
+    })
+  }
 
   return (
     <main className='min-h-screen bg-ui-app text-ui-primary'>
@@ -63,34 +92,34 @@ export function TemplateEditorShell() {
       </header>
 
       <div className='grid min-h-[calc(100vh-112px)] grid-cols-1 gap-3 p-3 lg:grid-cols-[240px_minmax(0,1fr)_240px] xl:grid-cols-[260px_minmax(0,1fr)_280px]'>
-        <Panel
-          aside={<Badge variant='muted'>{libraryState.templates.length}</Badge>}
-          eyebrow='Library'
-          title='Template Library'
-        >
-          <div className='flex flex-col gap-2' role='listbox' aria-label='Template Library'>
-            {libraryState.templates.map((template) => {
-              const isSelected = template.id === libraryState.selectedTemplateId
+        <section className='flex min-h-0 flex-col gap-3'>
+          <Panel
+            aside={<Badge variant='muted'>{libraryState.templates.length}</Badge>}
+            eyebrow='Library'
+            title='Template Library'
+          >
+            <div className='flex flex-col gap-2' role='listbox' aria-label='Template Library'>
+              {libraryState.templates.map((template) => {
+                const isSelected = template.id === libraryState.selectedTemplateId
 
-              return (
-                <Button
-                  data-selected={isSelected ? 'true' : undefined}
-                  key={template.id}
-                  aria-selected={isSelected}
-                  className='w-full justify-start'
-                  onClick={() => {
-                    setLibraryState((currentState) => selectTemplate(currentState, template.id))
-                  }}
-                  variant={isSelected ? 'selected' : 'neutral'}
-                >
-                  {template.name}
-                </Button>
-              )
-            })}
-          </div>
-        </Panel>
+                return (
+                  <Button
+                    data-selected={isSelected ? 'true' : undefined}
+                    key={template.id}
+                    aria-selected={isSelected}
+                    className='w-full justify-start'
+                    onClick={() => {
+                      setLibraryState((currentState) => selectTemplate(currentState, template.id))
+                    }}
+                    variant={isSelected ? 'selected' : 'neutral'}
+                  >
+                    {template.name}
+                  </Button>
+                )
+              })}
+            </div>
+          </Panel>
 
-        <section className='grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-[220px_minmax(0,1fr)]'>
           <Panel
             aside={<Badge variant='selected'>{selectedTemplate?.layers.length ?? 0}</Badge>}
             eyebrow='Structure'
@@ -157,7 +186,9 @@ export function TemplateEditorShell() {
               />
             )}
           </Panel>
+        </section>
 
+        <section className='min-w-0'>
           <Panel
             aside={<Badge variant='selected'>16:9</Badge>}
             className='border-ui-accent/30'
@@ -185,15 +216,10 @@ export function TemplateEditorShell() {
           eyebrow='Inspector'
           title='Properties'
         >
-          {selectedElement ? (
-            <div className='flex flex-col gap-2'>
-              <span className='text-xs font-semibold uppercase text-ui-accent'>Selected element</span>
-              <span className='text-sm text-ui-primary'>{selectedElement.name}</span>
-              <span className='text-sm text-ui-secondary'>{selectedElement.kind}</span>
-            </div>
-          ) : (
-            <EmptyState title='Select an element to edit properties' />
-          )}
+          <ElementPropertiesPanel
+            element={selectedElement}
+            onElementChange={handleElementChange}
+          />
         </Panel>
       </div>
     </main>

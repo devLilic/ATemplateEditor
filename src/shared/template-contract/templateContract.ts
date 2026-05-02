@@ -36,11 +36,11 @@ export interface TemplateTextStyle {
 
 export interface TemplateImageStyle {
   opacity: number
-  objectFit: 'contain'
+  objectFit: 'contain' | 'cover' | 'fill'
 }
 
 export interface TemplateShapeStyle {
-  shapeType: 'rectangle'
+  shapeType: 'rectangle' | 'ellipse'
   fillColor: string
   borderColor?: string
   borderWidth: number

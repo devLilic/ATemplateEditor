@@ -1,0 +1,518 @@
+import type { ChangeEvent, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import { Badge } from '@/shared/ui/Badge'
+import { EmptyState } from '@/shared/ui/EmptyState'
+import type {
+  TemplateElement,
+  TemplateImageElement,
+  TemplateShapeElement,
+  TemplateTextElement,
+} from '@/shared/template-contract/templateContract'
+
+interface ElementPropertiesPanelProps {
+  element?: TemplateElement
+  onElementChange: (elementId: string, patch: Partial<TemplateElement>) => void
+}
+
+type RotatableElement = TemplateElement & {
+  rotation?: number
+}
+
+interface FieldProps {
+  label: string
+  children: ReactNode
+}
+
+interface InputFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+  label: string
+}
+
+interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label: string
+  children: ReactNode
+}
+
+function Field({ label, children }: FieldProps) {
+  return (
+    <label className='flex flex-col gap-1'>
+      <span className='text-[11px] font-semibold uppercase tracking-normal text-ui-disabled'>{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function inputClassName() {
+  return 'h-9 rounded-md border border-ui-border bg-ui-card px-3 text-sm text-ui-primary outline-none transition-colors placeholder:text-ui-disabled focus:border-ui-accent'
+}
+
+function InputField({ label, ...props }: InputFieldProps) {
+  return (
+    <Field label={label}>
+      <input
+        {...props}
+        aria-label={label}
+        className={`${inputClassName()} ${props.className ?? ''}`.trim()}
+        name={props.name ?? label}
+      />
+    </Field>
+  )
+}
+
+function SelectField({ label, children, ...props }: SelectFieldProps) {
+  return (
+    <Field label={label}>
+      <select
+        {...props}
+        aria-label={label}
+        className={`${inputClassName()} ${props.className ?? ''}`.trim()}
+        name={props.name ?? label}
+      >
+        {children}
+      </select>
+    </Field>
+  )
+}
+
+function parseNumericInput(value: string) {
+  if (value.trim() === '') {
+    return undefined
+  }
+
+  const parsedValue = Number(value)
+
+  return Number.isFinite(parsedValue) ? parsedValue : undefined
+}
+
+function getRotation(element: TemplateElement) {
+  return (element as RotatableElement).rotation ?? 0
+}
+
+function isTextElement(element: TemplateElement): element is TemplateTextElement {
+  return element.kind === 'text'
+}
+
+function isImageElement(element: TemplateElement): element is TemplateImageElement {
+  return element.kind === 'image'
+}
+
+function isShapeElement(element: TemplateElement): element is TemplateShapeElement {
+  return element.kind === 'shape'
+}
+
+export function ElementPropertiesPanel({
+  element,
+  onElementChange,
+}: ElementPropertiesPanelProps) {
+  if (!element) {
+    return <EmptyState title='Select an element to edit properties' />
+  }
+
+  const emitPatch = (patch: Partial<TemplateElement>) => {
+    onElementChange(element.id, patch)
+  }
+
+  const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    emitPatch({
+      name: event.currentTarget.value,
+    })
+  }
+
+  const handlePositionChange =
+    (axis: 'x' | 'y') =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const numericValue = parseNumericInput(event.currentTarget.value)
+
+      if (numericValue === undefined) {
+        return
+      }
+
+      emitPatch({
+        position: {
+          ...element.position,
+          [axis]: numericValue,
+        },
+      } as Partial<TemplateElement>)
+    }
+
+  const handleSizeChange =
+    (dimension: 'width' | 'height') =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const numericValue = parseNumericInput(event.currentTarget.value)
+
+      if (numericValue === undefined) {
+        return
+      }
+
+      emitPatch({
+        size: {
+          ...element.size,
+          [dimension]: numericValue,
+        },
+      } as Partial<TemplateElement>)
+    }
+
+  const handleRotationChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    emitPatch({
+      rotation: numericValue,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleFlagChange =
+    (fieldName: 'visible' | 'locked') =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      emitPatch({
+        [fieldName]: event.currentTarget.checked,
+      } as Partial<TemplateElement>)
+    }
+
+  const handleTextStyleChange =
+    <Key extends keyof TemplateTextElement['style']>(fieldName: Key) =>
+    (value: TemplateTextElement['style'][Key]) => {
+      if (!isTextElement(element)) {
+        return
+      }
+
+      emitPatch({
+        style: {
+          ...element.style,
+          [fieldName]: value,
+        },
+      } as Partial<TemplateElement>)
+    }
+
+  const handleFallbackTextChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isTextElement(element)) {
+      return
+    }
+
+    emitPatch({
+      fallbackText: event.currentTarget.value,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleFontSizeChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    handleTextStyleChange('fontSize')(numericValue)
+  }
+
+  const handleFontFamilyChange = (event: ChangeEvent<HTMLInputElement>) => {
+    handleTextStyleChange('fontFamily')(event.currentTarget.value)
+  }
+
+  const handleColorChange = (event: ChangeEvent<HTMLInputElement>) => {
+    handleTextStyleChange('color')(event.currentTarget.value)
+  }
+
+  const handleTextAlignChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    handleTextStyleChange('textAlign')(event.currentTarget.value as TemplateTextElement['style']['textAlign'])
+  }
+
+  const handleAssetIdChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isImageElement(element)) {
+      return
+    }
+
+    const value = event.currentTarget.value
+
+    emitPatch({
+      assetId: value || undefined,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleOpacityChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isImageElement(element)) {
+      return
+    }
+
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    emitPatch({
+      opacity: numericValue,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleObjectFitChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    if (!isImageElement(element)) {
+      return
+    }
+
+    emitPatch({
+      objectFit: event.currentTarget.value as TemplateImageElement['objectFit'],
+    } as Partial<TemplateElement>)
+  }
+
+  const handleShapeTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    if (!isShapeElement(element)) {
+      return
+    }
+
+    emitPatch({
+      shapeType: event.currentTarget.value as TemplateShapeElement['shapeType'],
+    } as Partial<TemplateElement>)
+  }
+
+  const handleFillColorChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isShapeElement(element)) {
+      return
+    }
+
+    emitPatch({
+      fillColor: event.currentTarget.value,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleBorderColorChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isShapeElement(element)) {
+      return
+    }
+
+    const value = event.currentTarget.value
+
+    emitPatch({
+      borderColor: value || undefined,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleBorderWidthChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isShapeElement(element)) {
+      return
+    }
+
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    emitPatch({
+      borderWidth: numericValue,
+    } as Partial<TemplateElement>)
+  }
+
+  return (
+    <div className='flex flex-col gap-4 text-ui-primary'>
+      <div className='flex items-start justify-between gap-3 rounded-md border border-ui-border bg-ui-card/40 px-3 py-3'>
+        <div className='min-w-0'>
+          <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Element</div>
+          <div className='truncate text-sm font-semibold text-ui-primary'>{element.name}</div>
+        </div>
+        <Badge variant='selected'>{element.kind}</Badge>
+      </div>
+
+      <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
+        <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Common</div>
+
+        <InputField
+          label='name'
+          onChange={handleNameChange}
+          onInput={handleNameChange}
+          type='text'
+          value={element.name}
+        />
+
+        <div className='grid grid-cols-2 gap-3'>
+          <InputField
+            label='x'
+            onChange={handlePositionChange('x')}
+            onInput={handlePositionChange('x')}
+            type='number'
+            value={String(element.position.x)}
+          />
+          <InputField
+            label='y'
+            onChange={handlePositionChange('y')}
+            onInput={handlePositionChange('y')}
+            type='number'
+            value={String(element.position.y)}
+          />
+        </div>
+
+        <div className='grid grid-cols-2 gap-3'>
+          <InputField
+            label='width'
+            onChange={handleSizeChange('width')}
+            onInput={handleSizeChange('width')}
+            type='number'
+            value={String(element.size.width)}
+          />
+          <InputField
+            label='height'
+            onChange={handleSizeChange('height')}
+            onInput={handleSizeChange('height')}
+            type='number'
+            value={String(element.size.height)}
+          />
+        </div>
+
+        <InputField
+          label='rotation'
+          onChange={handleRotationChange}
+          onInput={handleRotationChange}
+          type='number'
+          value={String(getRotation(element))}
+        />
+
+        <div className='grid grid-cols-2 gap-3'>
+          <Field label='visible'>
+            <input
+              aria-label='visible'
+              checked={element.visible}
+              className='h-4 w-4 accent-ui-accent'
+              name='visible'
+              onChange={handleFlagChange('visible')}
+              onInput={handleFlagChange('visible')}
+              type='checkbox'
+            />
+          </Field>
+
+          <Field label='locked'>
+            <input
+              aria-label='locked'
+              checked={element.locked}
+              className='h-4 w-4 accent-ui-accent'
+              name='locked'
+              onChange={handleFlagChange('locked')}
+              onInput={handleFlagChange('locked')}
+              type='checkbox'
+            />
+          </Field>
+        </div>
+      </section>
+
+      {isTextElement(element) ? (
+        <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
+          <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Text</div>
+
+          <InputField
+            label='fallbackText'
+            onChange={handleFallbackTextChange}
+            onInput={handleFallbackTextChange}
+            type='text'
+            value={element.fallbackText}
+          />
+
+          <InputField
+            label='fontSize'
+            onChange={handleFontSizeChange}
+            onInput={handleFontSizeChange}
+            type='number'
+            value={String(element.style.fontSize)}
+          />
+
+          <InputField
+            label='fontFamily'
+            onChange={handleFontFamilyChange}
+            onInput={handleFontFamilyChange}
+            type='text'
+            value={element.style.fontFamily}
+          />
+
+          <InputField
+            label='color'
+            onChange={handleColorChange}
+            onInput={handleColorChange}
+            type='text'
+            value={element.style.color}
+          />
+
+          <SelectField
+            label='textAlign'
+            onChange={handleTextAlignChange}
+            value={element.style.textAlign}
+          >
+            <option value='left'>left</option>
+            <option value='center'>center</option>
+            <option value='right'>right</option>
+          </SelectField>
+        </section>
+      ) : null}
+
+      {isImageElement(element) ? (
+        <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
+          <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Image</div>
+
+          <InputField
+            label='assetId'
+            onChange={handleAssetIdChange}
+            onInput={handleAssetIdChange}
+            type='text'
+            value={element.assetId ?? ''}
+          />
+
+          <InputField
+            label='opacity'
+            onChange={handleOpacityChange}
+            onInput={handleOpacityChange}
+            type='number'
+            value={String(element.opacity)}
+          />
+
+          <SelectField
+            label='objectFit'
+            onChange={handleObjectFitChange}
+            value={element.objectFit}
+          >
+            <option value='contain'>contain</option>
+            <option value='cover'>cover</option>
+            <option value='fill'>fill</option>
+          </SelectField>
+        </section>
+      ) : null}
+
+      {isShapeElement(element) ? (
+        <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
+          <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Shape</div>
+
+          <SelectField
+            label='shapeType'
+            onChange={handleShapeTypeChange}
+            value={element.shapeType}
+          >
+            <option value='rectangle'>rectangle</option>
+            <option value='ellipse'>ellipse</option>
+          </SelectField>
+
+          <InputField
+            label='fillColor'
+            onChange={handleFillColorChange}
+            onInput={handleFillColorChange}
+            type='text'
+            value={element.fillColor}
+          />
+
+          <InputField
+            label='borderColor'
+            onChange={handleBorderColorChange}
+            onInput={handleBorderColorChange}
+            type='text'
+            value={element.borderColor ?? ''}
+          />
+
+          <InputField
+            label='borderWidth'
+            onChange={handleBorderWidthChange}
+            onInput={handleBorderWidthChange}
+            type='number'
+            value={String(element.borderWidth)}
+          />
+        </section>
+      ) : null}
+    </div>
+  )
+}
+
+export default ElementPropertiesPanel
