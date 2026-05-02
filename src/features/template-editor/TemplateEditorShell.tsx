@@ -101,69 +101,96 @@ export function TemplateEditorShell() {
 
   return (
     <main className='min-h-screen bg-ui-app text-ui-primary'>
-      <header className='flex min-h-[72px] flex-col items-start justify-between gap-3 border-b border-ui-border bg-ui-app/95 px-4 py-4 sm:flex-row sm:items-center sm:px-5'>
-        <div className='min-w-0'>
-          <h1 className='m-0 text-xl font-semibold tracking-normal text-ui-primary'>ATemplateEditor</h1>
-          <p className='m-0 mt-1 text-sm text-ui-secondary'>Template JSON editor for broadcast graphics</p>
-        </div>
-        <div className='flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0'>
-          <Badge variant='muted'>Basic UI</Badge>
-          <Button
-            onClick={() => {
-              if (!selectedTemplate) {
-                setExportJson('No template selected')
-                return
-              }
+      <header className='border-b border-ui-border bg-ui-app/95 px-4 py-4 backdrop-blur sm:px-5'>
+        <div className='mx-auto flex min-h-[72px] max-w-[1600px] flex-col items-start justify-between gap-3 lg:flex-row lg:items-center'>
+          <div className='min-w-0'>
+            <div className='mb-2 flex flex-wrap items-center gap-2'>
+              <Badge variant='muted'>Template workspace</Badge>
+              <Badge variant='muted'>Basic UI</Badge>
+            </div>
+            <h1 className='m-0 text-xl font-semibold tracking-normal text-ui-primary sm:text-2xl'>
+              ATemplateEditor
+            </h1>
+            <p className='m-0 mt-1 text-sm text-ui-secondary'>
+              Template JSON editor for broadcast graphics
+            </p>
+          </div>
+          <div className='flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:shrink-0'>
+            <Button
+              className='w-full sm:w-auto'
+              onClick={() => {
+                if (!selectedTemplate) {
+                  setExportJson('No template selected')
+                  return
+                }
 
-              setExportJson(exportTemplateToJson(selectedTemplate))
-            }}
-            variant='neutral'
-          >
-            Export JSON
-          </Button>
-          <Button
-            onClick={() => {
-              setLibraryState((currentState) => createAndAddTemplate(currentState))
-              setImportErrors([])
-            }}
-            variant='accent'
-          >
-            New template
-          </Button>
+                setExportJson(exportTemplateToJson(selectedTemplate))
+              }}
+              variant='neutral'
+            >
+              Export JSON
+            </Button>
+            <Button
+              className='w-full sm:w-auto'
+              onClick={() => {
+                setLibraryState((currentState) => createAndAddTemplate(currentState))
+                setImportErrors([])
+              }}
+              variant='accent'
+            >
+              New template
+            </Button>
+          </div>
         </div>
       </header>
 
-      <div className='grid min-h-[calc(100vh-112px)] grid-cols-1 gap-3 p-3 lg:grid-cols-[240px_minmax(0,1fr)_240px] xl:grid-cols-[260px_minmax(0,1fr)_280px]'>
-        <section className='flex min-h-0 flex-col gap-3'>
+      <div className='mx-auto grid min-h-[calc(100vh-112px)] max-w-[1600px] grid-cols-1 gap-4 p-4 lg:grid-cols-2 xl:grid-cols-[240px_minmax(0,1fr)_340px]'>
+        <section className='order-2 flex min-h-0 min-w-0 flex-col gap-4 xl:order-1'>
           <Panel
-            aside={<Badge variant='muted'>{libraryState.templates.length}</Badge>}
+            aside={
+              <div className='flex items-center gap-2'>
+                {selectedTemplate ? <Badge variant='selected'>Active template</Badge> : null}
+                <Badge variant='muted'>{libraryState.templates.length}</Badge>
+              </div>
+            }
+            className='overflow-hidden'
             eyebrow='Library'
             title='Template Library'
           >
-            <div className='flex flex-col gap-2' role='listbox' aria-label='Template Library'>
-              {libraryState.templates.map((template) => {
-                const isSelected = template.id === libraryState.selectedTemplateId
+            {libraryState.templates.length > 0 ? (
+              <div className='flex flex-col gap-2' role='listbox' aria-label='Template Library'>
+                {libraryState.templates.map((template) => {
+                  const isSelected = template.id === libraryState.selectedTemplateId
 
-                return (
-                  <Button
-                    data-selected={isSelected ? 'true' : undefined}
-                    key={template.id}
-                    aria-selected={isSelected}
-                    className='w-full justify-start'
-                    onClick={() => {
-                      setLibraryState((currentState) => selectTemplate(currentState, template.id))
-                    }}
-                    variant={isSelected ? 'selected' : 'neutral'}
-                  >
-                    {template.name}
-                  </Button>
-                )
-              })}
-            </div>
+                  return (
+                    <Button
+                      data-selected={isSelected ? 'true' : undefined}
+                      key={template.id}
+                      aria-selected={isSelected}
+                      className='w-full justify-start'
+                      onClick={() => {
+                        setLibraryState((currentState) => selectTemplate(currentState, template.id))
+                      }}
+                      variant={isSelected ? 'selected' : 'neutral'}
+                    >
+                      {template.name}
+                    </Button>
+                  )
+                })}
+              </div>
+            ) : (
+              <EmptyState
+                description='Create a template or import JSON to start the workspace.'
+                title='No templates'
+              />
+            )}
 
             <div className='mt-4 border-t border-ui-border pt-4'>
+              <p className='mb-3 text-xs text-ui-secondary'>
+                Import accepts raw template JSON and keeps the selected template in sync.
+              </p>
               <label className='mb-2 block text-xs font-medium uppercase tracking-wide text-ui-secondary'>
-                Import JSON
+                JSON input
               </label>
               <textarea
                 aria-label='Import JSON'
@@ -176,6 +203,7 @@ export function TemplateEditorShell() {
               />
               <div className='mt-2 flex items-center gap-2'>
                 <Button
+                  className='w-full sm:w-auto'
                   onClick={() => {
                     const result = importTemplateFromJson(importJson)
 
@@ -192,7 +220,7 @@ export function TemplateEditorShell() {
                   }}
                   variant='neutral'
                 >
-                  Import from JSON
+                  Import JSON
                 </Button>
               </div>
               {importErrors.length > 0 ? (
@@ -208,7 +236,13 @@ export function TemplateEditorShell() {
           </Panel>
 
           <Panel
-            aside={<Badge variant='selected'>{selectedTemplate?.layers.length ?? 0}</Badge>}
+            aside={
+              <div className='flex items-center gap-2'>
+                {editorState?.selectedLayerId ? <Badge variant='selected'>Active layer</Badge> : null}
+                <Badge variant='selected'>{selectedTemplate?.layers.length ?? 0}</Badge>
+              </div>
+            }
+            className='overflow-hidden'
             eyebrow='Structure'
             title='Layers'
           >
@@ -221,7 +255,7 @@ export function TemplateEditorShell() {
                   )
 
                   return (
-                    <div key={layer.id} className='rounded-md border border-ui-border bg-ui-card/35 p-2'>
+                    <div key={layer.id} className='rounded-md border border-ui-border bg-ui-card/35 p-2.5'>
                       <Button
                         data-selected={isSelected ? 'true' : undefined}
                         aria-selected={isSelected}
@@ -269,28 +303,30 @@ export function TemplateEditorShell() {
             ) : (
               <EmptyState
                 description='Layers for the active template will appear here.'
-                title='No layers yet'
+                title='No layers'
               />
             )}
           </Panel>
         </section>
 
-        <section className='min-w-0'>
+        <section className='order-1 min-w-0 lg:col-span-2 xl:order-2 xl:col-span-1'>
           <Panel
             aside={<Badge variant='selected'>16:9</Badge>}
-            className='border-ui-accent/30'
-            contentClassName='flex min-h-[320px] items-center justify-center'
+            className='border-ui-accent/30 shadow-[0_0_0_1px_rgba(34,211,238,0.08),0_18px_48px_rgba(0,0,0,0.28)]'
+            contentClassName='flex min-h-[340px] items-start justify-start sm:min-h-[420px] sm:justify-center lg:min-h-[560px] xl:min-h-[720px]'
             eyebrow='Workspace'
             title='Preview'
           >
             {selectedTemplate ? (
-              <div className='flex w-full flex-col gap-3'>
-                <PreviewCanvas
-                  height={540}
-                  template={selectedTemplate}
-                  width={960}
-                />
-                <div>
+              <div className='flex w-full flex-col gap-4'>
+                <div className='w-full overflow-x-auto rounded-lg border border-ui-border bg-ui-card/25 p-3 sm:p-4'>
+                  <PreviewCanvas
+                    height={540}
+                    template={selectedTemplate}
+                    width={960}
+                  />
+                </div>
+                <div className='rounded-lg border border-ui-border bg-ui-card/20 p-3'>
                   <label className='mb-2 block text-xs font-medium uppercase tracking-wide text-ui-secondary'>
                     Exported JSON
                   </label>
@@ -311,9 +347,17 @@ export function TemplateEditorShell() {
           </Panel>
         </section>
 
-        <section className='flex min-h-0 flex-col gap-3'>
+        <section className='order-3 flex min-h-0 min-w-0 flex-col gap-4 lg:col-span-2 xl:col-span-1'>
           <Panel
-            aside={selectedElement ? <Badge variant='selected'>Selected</Badge> : undefined}
+            aside={
+              selectedElement ? (
+                <div className='flex items-center gap-2'>
+                  <Badge variant='selected'>Selected element</Badge>
+                  <Badge variant='muted'>{selectedElement.kind}</Badge>
+                </div>
+              ) : undefined
+            }
+            className='overflow-hidden'
             eyebrow='Inspector'
             title='Properties'
           >
@@ -323,32 +367,47 @@ export function TemplateEditorShell() {
             />
           </Panel>
 
-          {selectedTemplate ? (
-            <Panel eyebrow='Data' title='Preview data'>
+          <Panel className='overflow-hidden' eyebrow='Data' title='Preview data'>
+            {selectedTemplate ? (
               <PreviewDataPanel
                 onTemplateChange={handleTemplateChange}
                 template={selectedTemplate}
               />
-            </Panel>
-          ) : null}
+            ) : (
+              <EmptyState
+                description='Select a template to inspect preview, fallback and resolved values.'
+                title='No editable fields yet'
+              />
+            )}
+          </Panel>
 
-          {selectedTemplate ? (
-            <Panel eyebrow='Bindings' title='Editable fields & bindings'>
+          <Panel className='overflow-hidden' eyebrow='Bindings' title='Editable fields & bindings'>
+            {selectedTemplate ? (
               <EditableBindingsPanel
                 onTemplateChange={handleTemplateChange}
                 template={selectedTemplate}
               />
-            </Panel>
-          ) : null}
+            ) : (
+              <EmptyState
+                description='Select a template to manage editable labels and field bindings.'
+                title='No editable fields yet'
+              />
+            )}
+          </Panel>
 
-          {selectedTemplate ? (
-            <Panel eyebrow='OnAir' title='OnAir metadata'>
+          <Panel className='overflow-hidden' eyebrow='OnAir' title='OnAir metadata'>
+            {selectedTemplate ? (
               <OnAirMetadataPanel
                 onTemplateChange={handleTemplateChange}
                 template={selectedTemplate}
               />
-            </Panel>
-          ) : null}
+            ) : (
+              <EmptyState
+                description='Select a template to inspect runtime metadata.'
+                title='No template selected'
+              />
+            )}
+          </Panel>
         </section>
       </div>
     </main>

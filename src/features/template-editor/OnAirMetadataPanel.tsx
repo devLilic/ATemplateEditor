@@ -1,6 +1,7 @@
-import type { ChangeEvent, InputHTMLAttributes, ReactNode } from 'react'
+import type { ChangeEvent } from 'react'
 import type { TemplateContract } from '@/shared/template-contract/templateContract'
 import { Button } from '@/shared/ui/Button'
+import { Badge } from '@/shared/ui/Badge'
 import {
   clearOscCommands,
   getOnAirMetadata,
@@ -11,45 +12,15 @@ import {
   setOscStopCommand,
   updateOnAirConfig,
 } from './onAirMetadataState'
+import {
+  FormCheckbox,
+  FormInput,
+  FormSection,
+} from './TemplateEditorFormPrimitives'
 
 interface OnAirMetadataPanelProps {
   template: TemplateContract
   onTemplateChange: (template: TemplateContract) => void
-}
-
-interface FieldProps {
-  label: string
-  children: ReactNode
-}
-
-interface InputFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
-  label: string
-}
-
-function Field({ label, children }: FieldProps) {
-  return (
-    <label className='flex flex-col gap-1'>
-      <span className='text-[11px] font-semibold uppercase tracking-normal text-ui-disabled'>{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function inputClassName() {
-  return 'h-9 rounded-md border border-ui-border bg-ui-card px-3 text-sm text-ui-primary outline-none transition-colors placeholder:text-ui-disabled focus:border-ui-accent'
-}
-
-function InputField({ label, ...props }: InputFieldProps) {
-  return (
-    <Field label={label}>
-      <input
-        {...props}
-        aria-label={label}
-        className={`${inputClassName()} ${props.className ?? ''}`.trim()}
-        name={props.name ?? label}
-      />
-    </Field>
-  )
 }
 
 function parseNumericInput(value: string) {
@@ -119,16 +90,22 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
   return (
     <div className='flex flex-col gap-4 text-ui-primary'>
       <div className='rounded-md border border-ui-border bg-ui-card/40 px-3 py-3'>
-        <div className='text-sm font-semibold text-ui-primary'>OnAir metadata</div>
+        <div className='flex items-center justify-between gap-3'>
+          <div className='text-sm font-semibold text-ui-primary'>OnAir metadata</div>
+          <Badge variant={metadata.oscEnabled ? 'active' : 'muted'}>
+            OSC {metadata.oscEnabled ? 'enabled' : 'disabled'}
+          </Badge>
+        </div>
         <div className='mt-1 text-xs text-ui-secondary'>
           Metadata only. This panel does not send OSC commands or trigger playback.
         </div>
       </div>
 
-      <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
-        <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Playback</div>
-
-        <InputField
+      <FormSection
+        description='Playback timing metadata for future OnAir runtime behavior.'
+        title='Playback'
+      >
+        <FormInput
           label='durationMs'
           onChange={handleDurationChange}
           onInput={handleDurationChange}
@@ -136,24 +113,17 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
           value={metadata.durationMs === undefined ? '' : String(metadata.durationMs)}
         />
 
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='autoHide'>
-            <input
-              aria-label='autoHide'
-              checked={metadata.autoHide}
-              className='h-4 w-4 accent-ui-accent'
-              name='autoHide'
-              onChange={handleAutoHideChange}
-              onInput={handleAutoHideChange}
-              type='checkbox'
-            />
-          </Field>
-
-          <div />
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+          <FormCheckbox
+            checked={metadata.autoHide}
+            label='autoHide'
+            onChange={handleAutoHideChange}
+            onInput={handleAutoHideChange}
+          />
         </div>
 
-        <div className='grid grid-cols-2 gap-3'>
-          <InputField
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+          <FormInput
             label='prerollMs'
             onChange={handleRollChange('prerollMs')}
             onInput={handleRollChange('prerollMs')}
@@ -161,7 +131,7 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
             value={String(metadata.prerollMs)}
           />
 
-          <InputField
+          <FormInput
             label='postrollMs'
             onChange={handleRollChange('postrollMs')}
             onInput={handleRollChange('postrollMs')}
@@ -169,16 +139,10 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
             value={String(metadata.postrollMs)}
           />
         </div>
-      </section>
+      </FormSection>
 
-      <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
-        <div className='flex items-center justify-between gap-3'>
-          <div>
-            <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>
-              OSC metadata
-            </div>
-            <div className='text-xs text-ui-secondary'>Stored in template metadata only.</div>
-          </div>
+      <FormSection
+        aside={
           <Button
             onClick={() => {
               onTemplateChange(clearOscCommands(template))
@@ -187,21 +151,19 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
           >
             Clear OSC commands
           </Button>
-        </div>
+        }
+        description='Stored in the template for OnAir Player. No network actions happen here.'
+        title='OSC metadata'
+      >
 
-        <Field label='enabled'>
-          <input
-            aria-label='enabled'
-            checked={metadata.oscEnabled}
-            className='h-4 w-4 accent-ui-accent'
-            name='enabled'
-            onChange={handleOscEnabledChange}
-            onInput={handleOscEnabledChange}
-            type='checkbox'
-          />
-        </Field>
+        <FormCheckbox
+          checked={metadata.oscEnabled}
+          label='enabled'
+          onChange={handleOscEnabledChange}
+          onInput={handleOscEnabledChange}
+        />
 
-        <InputField
+        <FormInput
           label='play address'
           onChange={handleOscAddressChange('play')}
           onInput={handleOscAddressChange('play')}
@@ -210,7 +172,7 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
           value={metadata.playCommand?.address ?? ''}
         />
 
-        <InputField
+        <FormInput
           label='stop address'
           onChange={handleOscAddressChange('stop')}
           onInput={handleOscAddressChange('stop')}
@@ -218,7 +180,7 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
           type='text'
           value={metadata.stopCommand?.address ?? ''}
         />
-      </section>
+      </FormSection>
     </div>
   )
 }

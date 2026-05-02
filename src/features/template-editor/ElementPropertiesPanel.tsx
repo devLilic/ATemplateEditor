@@ -1,4 +1,4 @@
-import type { ChangeEvent, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import type { ChangeEvent } from 'react'
 import { Badge } from '@/shared/ui/Badge'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import type {
@@ -7,6 +7,12 @@ import type {
   TemplateShapeElement,
   TemplateTextElement,
 } from '@/shared/template-contract/templateContract'
+import {
+  FormCheckbox,
+  FormInput,
+  FormSection,
+  FormSelect,
+} from './TemplateEditorFormPrimitives'
 
 interface ElementPropertiesPanelProps {
   element?: TemplateElement
@@ -15,61 +21,6 @@ interface ElementPropertiesPanelProps {
 
 type RotatableElement = TemplateElement & {
   rotation?: number
-}
-
-interface FieldProps {
-  label: string
-  children: ReactNode
-}
-
-interface InputFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
-  label: string
-}
-
-interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
-  label: string
-  children: ReactNode
-}
-
-function Field({ label, children }: FieldProps) {
-  return (
-    <label className='flex flex-col gap-1'>
-      <span className='text-[11px] font-semibold uppercase tracking-normal text-ui-disabled'>{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function inputClassName() {
-  return 'h-9 rounded-md border border-ui-border bg-ui-card px-3 text-sm text-ui-primary outline-none transition-colors placeholder:text-ui-disabled focus:border-ui-accent'
-}
-
-function InputField({ label, ...props }: InputFieldProps) {
-  return (
-    <Field label={label}>
-      <input
-        {...props}
-        aria-label={label}
-        className={`${inputClassName()} ${props.className ?? ''}`.trim()}
-        name={props.name ?? label}
-      />
-    </Field>
-  )
-}
-
-function SelectField({ label, children, ...props }: SelectFieldProps) {
-  return (
-    <Field label={label}>
-      <select
-        {...props}
-        aria-label={label}
-        className={`${inputClassName()} ${props.className ?? ''}`.trim()}
-        name={props.name ?? label}
-      >
-        {children}
-      </select>
-    </Field>
-  )
 }
 
 function parseNumericInput(value: string) {
@@ -313,10 +264,11 @@ export function ElementPropertiesPanel({
         <Badge variant='selected'>{element.kind}</Badge>
       </div>
 
-      <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
-        <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Common</div>
-
-        <InputField
+      <FormSection
+        description='Layout, visibility and transform settings.'
+        title='Common'
+      >
+        <FormInput
           label='name'
           onChange={handleNameChange}
           onInput={handleNameChange}
@@ -324,15 +276,15 @@ export function ElementPropertiesPanel({
           value={element.name}
         />
 
-        <div className='grid grid-cols-2 gap-3'>
-          <InputField
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+          <FormInput
             label='x'
             onChange={handlePositionChange('x')}
             onInput={handlePositionChange('x')}
             type='number'
             value={String(element.position.x)}
           />
-          <InputField
+          <FormInput
             label='y'
             onChange={handlePositionChange('y')}
             onInput={handlePositionChange('y')}
@@ -341,15 +293,15 @@ export function ElementPropertiesPanel({
           />
         </div>
 
-        <div className='grid grid-cols-2 gap-3'>
-          <InputField
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+          <FormInput
             label='width'
             onChange={handleSizeChange('width')}
             onInput={handleSizeChange('width')}
             type='number'
             value={String(element.size.width)}
           />
-          <InputField
+          <FormInput
             label='height'
             onChange={handleSizeChange('height')}
             onInput={handleSizeChange('height')}
@@ -358,7 +310,7 @@ export function ElementPropertiesPanel({
           />
         </div>
 
-        <InputField
+        <FormInput
           label='rotation'
           onChange={handleRotationChange}
           onInput={handleRotationChange}
@@ -366,38 +318,28 @@ export function ElementPropertiesPanel({
           value={String(getRotation(element))}
         />
 
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='visible'>
-            <input
-              aria-label='visible'
-              checked={element.visible}
-              className='h-4 w-4 accent-ui-accent'
-              name='visible'
-              onChange={handleFlagChange('visible')}
-              onInput={handleFlagChange('visible')}
-              type='checkbox'
-            />
-          </Field>
-
-          <Field label='locked'>
-            <input
-              aria-label='locked'
-              checked={element.locked}
-              className='h-4 w-4 accent-ui-accent'
-              name='locked'
-              onChange={handleFlagChange('locked')}
-              onInput={handleFlagChange('locked')}
-              type='checkbox'
-            />
-          </Field>
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+          <FormCheckbox
+            checked={element.visible}
+            label='visible'
+            onChange={handleFlagChange('visible')}
+            onInput={handleFlagChange('visible')}
+          />
+          <FormCheckbox
+            checked={element.locked}
+            label='locked'
+            onChange={handleFlagChange('locked')}
+            onInput={handleFlagChange('locked')}
+          />
         </div>
-      </section>
+      </FormSection>
 
       {isTextElement(element) ? (
-        <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
-          <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Text</div>
-
-          <InputField
+        <FormSection
+          description='Typography and fallback content for text rendering.'
+          title='Text'
+        >
+          <FormInput
             label='fallbackText'
             onChange={handleFallbackTextChange}
             onInput={handleFallbackTextChange}
@@ -405,7 +347,7 @@ export function ElementPropertiesPanel({
             value={element.fallbackText}
           />
 
-          <InputField
+          <FormInput
             label='fontSize'
             onChange={handleFontSizeChange}
             onInput={handleFontSizeChange}
@@ -413,7 +355,7 @@ export function ElementPropertiesPanel({
             value={String(element.style.fontSize)}
           />
 
-          <InputField
+          <FormInput
             label='fontFamily'
             onChange={handleFontFamilyChange}
             onInput={handleFontFamilyChange}
@@ -421,7 +363,7 @@ export function ElementPropertiesPanel({
             value={element.style.fontFamily}
           />
 
-          <InputField
+          <FormInput
             label='color'
             onChange={handleColorChange}
             onInput={handleColorChange}
@@ -429,7 +371,7 @@ export function ElementPropertiesPanel({
             value={element.style.color}
           />
 
-          <SelectField
+          <FormSelect
             label='textAlign'
             onChange={handleTextAlignChange}
             value={element.style.textAlign}
@@ -437,15 +379,16 @@ export function ElementPropertiesPanel({
             <option value='left'>left</option>
             <option value='center'>center</option>
             <option value='right'>right</option>
-          </SelectField>
-        </section>
+          </FormSelect>
+        </FormSection>
       ) : null}
 
       {isImageElement(element) ? (
-        <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
-          <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Image</div>
-
-          <InputField
+        <FormSection
+          description='Asset reference and object-fit display settings.'
+          title='Image'
+        >
+          <FormInput
             label='assetId'
             onChange={handleAssetIdChange}
             onInput={handleAssetIdChange}
@@ -453,7 +396,7 @@ export function ElementPropertiesPanel({
             value={element.assetId ?? ''}
           />
 
-          <InputField
+          <FormInput
             label='opacity'
             onChange={handleOpacityChange}
             onInput={handleOpacityChange}
@@ -461,7 +404,7 @@ export function ElementPropertiesPanel({
             value={String(element.opacity)}
           />
 
-          <SelectField
+          <FormSelect
             label='objectFit'
             onChange={handleObjectFitChange}
             value={element.objectFit}
@@ -469,24 +412,25 @@ export function ElementPropertiesPanel({
             <option value='contain'>contain</option>
             <option value='cover'>cover</option>
             <option value='fill'>fill</option>
-          </SelectField>
-        </section>
+          </FormSelect>
+        </FormSection>
       ) : null}
 
       {isShapeElement(element) ? (
-        <section className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'>
-          <div className='text-[11px] font-semibold uppercase tracking-normal text-ui-accent'>Shape</div>
-
-          <SelectField
+        <FormSection
+          description='Primitive shape styling for fills and borders.'
+          title='Shape'
+        >
+          <FormSelect
             label='shapeType'
             onChange={handleShapeTypeChange}
             value={element.shapeType}
           >
             <option value='rectangle'>rectangle</option>
             <option value='ellipse'>ellipse</option>
-          </SelectField>
+          </FormSelect>
 
-          <InputField
+          <FormInput
             label='fillColor'
             onChange={handleFillColorChange}
             onInput={handleFillColorChange}
@@ -494,7 +438,7 @@ export function ElementPropertiesPanel({
             value={element.fillColor}
           />
 
-          <InputField
+          <FormInput
             label='borderColor'
             onChange={handleBorderColorChange}
             onInput={handleBorderColorChange}
@@ -502,14 +446,14 @@ export function ElementPropertiesPanel({
             value={element.borderColor ?? ''}
           />
 
-          <InputField
+          <FormInput
             label='borderWidth'
             onChange={handleBorderWidthChange}
             onInput={handleBorderWidthChange}
             type='number'
             value={String(element.borderWidth)}
           />
-        </section>
+        </FormSection>
       ) : null}
     </div>
   )
