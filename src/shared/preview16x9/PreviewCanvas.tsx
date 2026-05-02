@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { getTemplateFieldValue } from '../template-contract/templateDefaults'
 import type {
+  TemplateAsset,
   TemplateContract,
   TemplateElement,
   TemplateImageElement,
@@ -79,6 +80,16 @@ function sortElementsByLayer(template: TemplateContract) {
 
     return 0
   })
+}
+
+function getReferenceFrameAsset(template: TemplateContract): TemplateAsset | undefined {
+  const assetId = template.metadata.referenceFrameAssetId
+
+  if (!assetId) {
+    return undefined
+  }
+
+  return template.assets.find((asset) => asset.id === assetId)
 }
 
 export function calculatePreviewLayout(
@@ -255,6 +266,7 @@ function renderElement(layout: PreviewElementLayout, template: TemplateContract)
 export function PreviewCanvas({ template, width, height, className }: PreviewCanvasProps) {
   const frame = calculatePreviewFrame(template.canvas.width, template.canvas.height, width, height)
   const layout = calculatePreviewLayout(template, frame)
+  const referenceFrameAsset = getReferenceFrameAsset(template)
 
   return (
     <div
@@ -280,6 +292,23 @@ export function PreviewCanvas({ template, width, height, className }: PreviewCan
           background: '#111827',
         }}
       >
+        {referenceFrameAsset ? (
+          <img
+            alt=''
+            aria-hidden='true'
+            src={referenceFrameAsset.source.value}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              opacity: 0.24,
+              pointerEvents: 'none',
+              userSelect: 'none',
+            }}
+          />
+        ) : null}
         {layout.map((item) => renderElement(item, template))}
       </div>
     </div>

@@ -144,6 +144,7 @@ export interface TemplateMetadata {
   updatedAt: string
   author?: string
   description?: string
+  referenceFrameAssetId?: string
 }
 
 export interface TemplateContract {
@@ -254,6 +255,7 @@ export function createEmptyTemplate(input: CreateEmptyTemplateInput = {}): Templ
       updatedAt: now,
       author: undefined,
       description: undefined,
+      referenceFrameAssetId: undefined,
     },
   }
 }

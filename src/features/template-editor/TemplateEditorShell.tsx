@@ -17,6 +17,7 @@ import {
 } from '@/features/template-state'
 import { EditableBindingsPanel } from './EditableBindingsPanel'
 import { ElementPropertiesPanel } from './ElementPropertiesPanel'
+import { AssetsPanel } from './AssetsPanel'
 import { LayersPanel } from './LayersPanel'
 import { OnAirMetadataPanel } from './OnAirMetadataPanel'
 import { PreviewDataPanel } from './PreviewDataPanel'
@@ -310,6 +311,33 @@ export function TemplateEditorShell() {
               <EmptyState
                 description='Layers for the active template will appear here.'
                 title='No layers'
+              />
+            )}
+          </Panel>
+
+          <Panel
+            aside={
+              <div className='flex items-center gap-2'>
+                {selectedTemplate?.metadata.referenceFrameAssetId ? (
+                  <Badge variant='selected'>Reference frame</Badge>
+                ) : null}
+                <Badge variant='muted'>{selectedTemplate?.assets.length ?? 0}</Badge>
+              </div>
+            }
+            className='overflow-hidden'
+            eyebrow='Assets'
+            title='Assets'
+          >
+            {selectedTemplate ? (
+              <AssetsPanel
+                onTemplateChange={handleTemplateChange}
+                selectedElementId={editorState?.selectedElementId}
+                template={selectedTemplate}
+              />
+            ) : (
+              <EmptyState
+                description='Select a template to upload and assign image assets.'
+                title='No template selected'
               />
             )}
           </Panel>
