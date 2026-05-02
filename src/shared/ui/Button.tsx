@@ -9,10 +9,7 @@ type ButtonVariant =
   | 'danger'
   | 'ghost'
 
-interface ButtonProps extends PropsWithChildren {
-  onClick?: ButtonHTMLAttributes<HTMLButtonElement>['onClick']
-  disabled?: boolean
-  type?: ButtonHTMLAttributes<HTMLButtonElement>['type']
+interface ButtonProps extends PropsWithChildren, ButtonHTMLAttributes<HTMLButtonElement> {
   className?: string
   variant?: ButtonVariant
 }
@@ -33,11 +30,10 @@ function cx(...classes: Array<string | undefined>) {
 
 export function Button({
   children,
-  onClick,
-  disabled,
   type = 'button',
   className,
   variant = 'neutral',
+  ...props
 }: ButtonProps) {
   return (
     <button
@@ -46,8 +42,7 @@ export function Button({
         variantClasses[variant],
         className,
       )}
-      disabled={disabled}
-      onClick={onClick}
+      {...props}
       type={type}
     >
       {children}
