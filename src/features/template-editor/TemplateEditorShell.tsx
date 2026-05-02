@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  addTemplate,
   createTemplateLibraryState,
   createAndAddTemplate,
   getSelectedTemplate,
   selectTemplate,
   updateTemplate,
 } from '@/features/template-library'
+import { exportTemplateToJson, importTemplateFromJson } from '@/features/export-import'
 import {
   createTemplateEditorState,
   selectElement,
@@ -27,6 +29,9 @@ export function TemplateEditorShell() {
       templates: [createDefaultTemplate()],
     }),
   )
+  const [exportJson, setExportJson] = useState('')
+  const [importJson, setImportJson] = useState('')
+  const [importErrors, setImportErrors] = useState<Array<{ path: string; message: string }>>([])
 
   const selectedTemplate = getSelectedTemplate(libraryState)
   const [editorState, setEditorState] = useState<TemplateEditorState | undefined>(() =>
@@ -82,7 +87,21 @@ export function TemplateEditorShell() {
           <Badge variant='muted'>Basic UI</Badge>
           <Button
             onClick={() => {
+              if (!selectedTemplate) {
+                setExportJson('No template selected')
+                return
+              }
+
+              setExportJson(exportTemplateToJson(selectedTemplate))
+            }}
+            variant='neutral'
+          >
+            Export JSON
+          </Button>
+          <Button
+            onClick={() => {
               setLibraryState((currentState) => createAndAddTemplate(currentState))
+              setImportErrors([])
             }}
             variant='accent'
           >
@@ -117,6 +136,51 @@ export function TemplateEditorShell() {
                   </Button>
                 )
               })}
+            </div>
+
+            <div className='mt-4 border-t border-ui-border pt-4'>
+              <label className='mb-2 block text-xs font-medium uppercase tracking-wide text-ui-secondary'>
+                Import JSON
+              </label>
+              <textarea
+                aria-label='Import JSON'
+                className='min-h-40 w-full rounded-md border border-ui-border bg-ui-card px-3 py-2 text-sm text-ui-primary outline-none'
+                onChange={(event) => {
+                  setImportJson(event.target.value)
+                }}
+                placeholder='Paste template JSON here'
+                value={importJson}
+              />
+              <div className='mt-2 flex items-center gap-2'>
+                <Button
+                  onClick={() => {
+                    const result = importTemplateFromJson(importJson)
+
+                    if (result.status === 'error') {
+                      setImportErrors(result.errors)
+                      return
+                    }
+
+                    setImportErrors([])
+                    setLibraryState((currentState) => {
+                      const nextState = addTemplate(currentState, result.template)
+                      return selectTemplate(nextState, result.template.id)
+                    })
+                  }}
+                  variant='neutral'
+                >
+                  Import from JSON
+                </Button>
+              </div>
+              {importErrors.length > 0 ? (
+                <ul className='mt-3 space-y-1 text-sm text-ui-danger'>
+                  {importErrors.map((error, index) => (
+                    <li key={`${error.path}-${index}`}>
+                      {error.path}: {error.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
           </Panel>
 
@@ -197,11 +261,24 @@ export function TemplateEditorShell() {
             title='Preview'
           >
             {selectedTemplate ? (
-              <PreviewCanvas
-                height={540}
-                template={selectedTemplate}
-                width={960}
-              />
+              <div className='flex w-full flex-col gap-3'>
+                <PreviewCanvas
+                  height={540}
+                  template={selectedTemplate}
+                  width={960}
+                />
+                <div>
+                  <label className='mb-2 block text-xs font-medium uppercase tracking-wide text-ui-secondary'>
+                    Exported JSON
+                  </label>
+                  <textarea
+                    aria-label='Exported JSON'
+                    className='min-h-40 w-full rounded-md border border-ui-border bg-ui-card px-3 py-2 font-mono text-xs text-ui-primary outline-none'
+                    readOnly
+                    value={exportJson}
+                  />
+                </div>
+              </div>
             ) : (
               <EmptyState
                 description='Create or select a template to render its preview.'

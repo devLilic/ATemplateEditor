@@ -47,4 +47,14 @@ The base validator returns an object with `valid` and `errors`. Each error inclu
 - Binding `fieldKey` must reference an existing editable field key, and `elementId` must reference an existing element id.
 - Accepted binding `targetProperty` values are `text`, `image`, and `visibility`.
 
+## Export / Import JSON
+
+- Export uses `JSON.stringify(template, null, 2)`, so the produced JSON is indented with `2` spaces.
+- Import starts with `JSON.parse` on the provided input text.
+- After parsing, import runs `validateTemplate()` on the parsed value.
+- Import rejects invalid JSON and returns an error at path `$` with the message `Invalid JSON`.
+- Import rejects templates that do not pass validation and returns the validator errors with their `path` and `message`.
+- Import preserves the template `id`; importing an exported template keeps the same identifier.
+- The current editor UI exposes export and import through textareas. It does not use a file picker yet.
+
 This document intentionally stays minimal until the contract evolves through implementation tasks.
