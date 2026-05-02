@@ -146,6 +146,21 @@ export function ElementPropertiesPanel({
     } as Partial<TemplateElement>)
   }
 
+  const handleTextBehaviorChange =
+    <Key extends keyof TemplateTextElement['behavior']>(fieldName: Key) =>
+    (value: TemplateTextElement['behavior'][Key]) => {
+      if (!isTextElement(element)) {
+        return
+      }
+
+      emitPatch({
+        behavior: {
+          ...element.behavior,
+          [fieldName]: value,
+        },
+      } as Partial<TemplateElement>)
+    }
+
   const handleFontSizeChange = (event: ChangeEvent<HTMLInputElement>) => {
     const numericValue = parseNumericInput(event.currentTarget.value)
 
@@ -166,6 +181,24 @@ export function ElementPropertiesPanel({
 
   const handleTextAlignChange = (event: ChangeEvent<HTMLSelectElement>) => {
     handleTextStyleChange('textAlign')(event.currentTarget.value as TemplateTextElement['style']['textAlign'])
+  }
+
+  const handleFitInBoxChange = (event: ChangeEvent<HTMLInputElement>) => {
+    handleTextBehaviorChange('fitInBox')(event.currentTarget.checked)
+  }
+
+  const handleFitModeChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    handleTextBehaviorChange('fitMode')(event.currentTarget.value as TemplateTextElement['behavior']['fitMode'])
+  }
+
+  const handleMinScaleXChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    handleTextBehaviorChange('minScaleX')(numericValue)
   }
 
   const handleAssetIdChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -380,6 +413,29 @@ export function ElementPropertiesPanel({
             <option value='center'>center</option>
             <option value='right'>right</option>
           </FormSelect>
+
+          <FormCheckbox
+            checked={element.behavior.fitInBox ?? true}
+            label='fitInBox'
+            onChange={handleFitInBoxChange}
+            onInput={handleFitInBoxChange}
+          />
+
+          <FormSelect
+            label='fitMode'
+            onChange={handleFitModeChange}
+            value={element.behavior.fitMode ?? 'scaleX'}
+          >
+            <option value='scaleX'>scaleX</option>
+          </FormSelect>
+
+          <FormInput
+            label='minScaleX'
+            onChange={handleMinScaleXChange}
+            onInput={handleMinScaleXChange}
+            type='number'
+            value={String(element.behavior.minScaleX ?? 0.5)}
+          />
         </FormSection>
       ) : null}
 

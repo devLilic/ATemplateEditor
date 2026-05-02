@@ -60,6 +60,27 @@ For text preview, the module uses template preview value resolution rules:
 
 This allows `PreviewCanvas` to show meaningful placeholder or authoring text even when no runtime data is available.
 
+## Text Fit In Box
+
+Broadcast text fitting in `Preview16x9` follows a horizontal compression model instead of wrapping or truncation.
+
+- text does not wrap to a second line
+- text does not truncate itself automatically
+- fitting uses `scaleX(...)` on the rendered text
+- `fitInBox: true` enables the behavior
+- `fitMode: "scaleX"` is the currently supported fitting mode
+- `minScaleX` defines the minimum horizontal compression allowed before the text stops shrinking further
+
+The preview recalculates the effective horizontal scale when these inputs change:
+
+- text content
+- `fontSize`
+- `fontFamily`
+- container width
+- font loading completion when `document.fonts.ready` is available
+
+This keeps the preview aligned with broadcast-style title rendering, where a fixed title box is preserved and text is compressed horizontally to stay inside it.
+
 ## Asset Behavior
 
 For image elements, the current preview supports template-linked asset metadata at a basic level.

@@ -860,6 +860,100 @@ describe('template validation', () => {
     )
   })
 
+  it('accepts a text element with valid optional fitInBox behavior', () => {
+    const layer = createLayer({ name: 'Main' })
+    const element = createTextElement({ layerId: layer.id })
+
+    const result = validateTemplate({
+      ...createDefaultTemplate(),
+      layers: [layer],
+      elements: [
+        {
+          ...element,
+          behavior: {
+            fitInBox: true,
+            fitMode: 'scaleX',
+            minScaleX: 0.5,
+          },
+        },
+      ],
+    })
+
+    expect(result.errors).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: expect.stringMatching(/^elements\[0\]\.behavior/),
+        }),
+      ]),
+    )
+  })
+
+  it('rejects a text element when behavior.fitInBox is not boolean', () => {
+    const layer = createLayer({ name: 'Main' })
+    const element = createTextElement({ layerId: layer.id })
+
+    expectInvalidTemplate(
+      {
+        ...createDefaultTemplate(),
+        layers: [layer],
+        elements: [
+          {
+            ...element,
+            behavior: {
+              ...element.behavior,
+              fitInBox: 'yes' as unknown as boolean,
+            },
+          },
+        ],
+      },
+      'elements[0].behavior.fitInBox',
+    )
+  })
+
+  it('rejects a text element when behavior.fitMode is not scaleX', () => {
+    const layer = createLayer({ name: 'Main' })
+    const element = createTextElement({ layerId: layer.id })
+
+    expectInvalidTemplate(
+      {
+        ...createDefaultTemplate(),
+        layers: [layer],
+        elements: [
+          {
+            ...element,
+            behavior: {
+              ...element.behavior,
+              fitMode: 'wrap',
+            },
+          } as unknown as TemplateElement,
+        ],
+      },
+      'elements[0].behavior.fitMode',
+    )
+  })
+
+  it('rejects a text element when behavior.minScaleX is not in the (0, 1] range', () => {
+    const layer = createLayer({ name: 'Main' })
+    const element = createTextElement({ layerId: layer.id })
+
+    expectInvalidTemplate(
+      {
+        ...createDefaultTemplate(),
+        layers: [layer],
+        elements: [
+          {
+            ...element,
+            behavior: {
+              ...element.behavior,
+              minScaleX: 0,
+            },
+          },
+        ],
+      },
+      'elements[0].behavior.minScaleX',
+    )
+  })
+
   it('rejects an image element when opacity is not number', () => {
     const layer = createLayer({ name: 'Main' })
 

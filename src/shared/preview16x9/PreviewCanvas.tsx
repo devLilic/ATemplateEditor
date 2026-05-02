@@ -1,4 +1,11 @@
-import type { CSSProperties } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import { getTemplateFieldValue } from '../template-contract/templateDefaults'
 import type {
   TemplateAsset,
@@ -40,8 +47,70 @@ interface ImageRuntimeStyle {
   rotation?: number
 }
 
+interface TextPreviewRuntimeStyle extends CSSProperties {
+  fitInBox?: boolean
+  fitMode?: 'scaleX'
+  minScaleX?: number
+  scaleX?: number
+}
+
+export interface CalculateTextScaleXInput {
+  textWidth: number
+  containerWidth: number
+  fitInBox: boolean
+  minScaleX?: number
+}
+
 function cx(...classes: Array<string | undefined>) {
   return classes.filter(Boolean).join(' ')
+}
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
+export function calculateTextScaleX({
+  textWidth,
+  containerWidth,
+  fitInBox,
+  minScaleX = 0.5,
+}: CalculateTextScaleXInput) {
+  if (!fitInBox) {
+    return 1
+  }
+
+  if (textWidth <= 0) {
+    return 1
+  }
+
+  if (containerWidth <= 0) {
+    return minScaleX
+  }
+
+  if (textWidth <= containerWidth) {
+    return 1
+  }
+
+  const scale = containerWidth / textWidth
+
+  return Math.max(minScaleX, scale)
+}
+
+function getTextBehavior(element: TemplateTextElement) {
+  return {
+    fitInBox: element.behavior?.fitInBox ?? true,
+    fitMode: element.behavior?.fitMode ?? 'scaleX',
+    minScaleX: element.behavior?.minScaleX ?? 0.5,
+  }
+}
+
+function estimateTextWidth(text: string, fontSize: number, fontFamily: string) {
+  const normalizedFamily = fontFamily.trim().toLowerCase()
+  const fontFactor = normalizedFamily.includes('times')
+    ? 1.25
+    : normalizedFamily.includes('arial')
+      ? 1
+      : 1.1
+
+  return Math.max(0, (text.length + 4) * fontSize * 1.2 * fontFactor)
 }
 
 export function calculatePreviewFrame(
@@ -112,22 +181,39 @@ export function calculatePreviewLayout(
       }
 
       if (element.kind === 'text') {
+        const content = element.sourceField
+          ? getTemplateFieldValue(template, element.sourceField)
+          : element.fallbackText
+        const behavior = getTextBehavior(element)
+        const scaleX = calculateTextScaleX({
+          textWidth: estimateTextWidth(
+            content,
+            element.style.fontSize * frame.scale,
+            element.style.fontFamily,
+          ),
+          containerWidth: element.size.width * frame.scale,
+          fitInBox: behavior.fitInBox && behavior.fitMode === 'scaleX',
+          minScaleX: behavior.minScaleX,
+        })
+
         return {
           element,
-          content: element.sourceField
-            ? getTemplateFieldValue(template, element.sourceField)
-            : element.fallbackText,
+          content,
           style: {
             ...baseStyle,
             color: element.style.color,
             fontFamily: element.style.fontFamily,
             fontSize: element.style.fontSize * frame.scale,
+            fitInBox: behavior.fitInBox,
+            fitMode: behavior.fitMode,
+            minScaleX: behavior.minScaleX,
+            scaleX,
             textAlign: element.style.textAlign,
             pointerEvents: 'none',
             whiteSpace: 'nowrap',
             transform: element.rotation !== 0 ? `rotate(${element.rotation}deg)` : undefined,
             transformOrigin: 'top left',
-          },
+          } as TextPreviewRuntimeStyle,
         }
       }
 
@@ -201,18 +287,106 @@ export function calculatePreviewLayout(
     })
 }
 
-function renderTextElement(layout: PreviewElementLayout & { element: TemplateTextElement }) {
-  const { element, style, content } = layout
+function TextPreviewElement({
+  element,
+  style,
+  content,
+}: PreviewElementLayout & { element: TemplateTextElement }) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const innerRef = useRef<HTMLSpanElement | null>(null)
+  const textStyle = style as TextPreviewRuntimeStyle
+  const fitInBox = textStyle.fitInBox === true && textStyle.fitMode === 'scaleX'
+  const minScaleX = typeof textStyle.minScaleX === 'number' ? textStyle.minScaleX : 0.5
+  const initialScaleX = typeof textStyle.scaleX === 'number' ? textStyle.scaleX : 1
+  const [scaleX, setScaleX] = useState(initialScaleX)
+
+  useIsomorphicLayoutEffect(() => {
+    const recalculateScale = () => {
+      if (!fitInBox) {
+        setScaleX(1)
+        return
+      }
+
+      const wrapper = wrapperRef.current
+      const inner = innerRef.current
+
+      if (!wrapper || !inner) {
+        return
+      }
+
+      const nextScaleX = calculateTextScaleX({
+        textWidth: inner.scrollWidth,
+        containerWidth: wrapper.clientWidth,
+        fitInBox: true,
+        minScaleX,
+      })
+
+      setScaleX((currentScaleX) => (currentScaleX === nextScaleX ? currentScaleX : nextScaleX))
+    }
+
+    recalculateScale()
+
+    if (typeof document !== 'undefined' && 'fonts' in document && document.fonts?.ready) {
+      let cancelled = false
+
+      void document.fonts.ready.then(() => {
+        if (!cancelled) {
+          recalculateScale()
+        }
+      })
+
+      return () => {
+        cancelled = true
+      }
+    }
+
+    return undefined
+  }, [
+    content,
+    fitInBox,
+    minScaleX,
+    textStyle.fontFamily,
+    textStyle.fontSize,
+    textStyle.width,
+  ])
+
+  const wrapperStyle = useMemo<CSSProperties>(
+    () => ({
+      ...style,
+      color: undefined,
+      fontFamily: undefined,
+      fontSize: undefined,
+      whiteSpace: undefined,
+      lineHeight: 1.1,
+    }),
+    [style],
+  )
+
+  const innerStyle = useMemo<CSSProperties>(
+    () => ({
+      color: textStyle.color,
+      display: 'inline-block',
+      fontFamily: textStyle.fontFamily,
+      fontSize: textStyle.fontSize,
+      transform: fitInBox ? `scaleX(${scaleX})` : undefined,
+      transformOrigin: 'left center',
+      whiteSpace: 'nowrap',
+    }),
+    [fitInBox, scaleX, textStyle.color, textStyle.fontFamily, textStyle.fontSize],
+  )
+
   return (
     <div
-      key={element.id}
+      ref={wrapperRef}
       data-kind='text'
-      style={{
-        ...style,
-        lineHeight: 1.1,
-      }}
+      style={wrapperStyle}
     >
-      {content}
+      <span
+        ref={innerRef}
+        style={innerStyle}
+      >
+        {content}
+      </span>
     </div>
   )
 }
@@ -249,7 +423,7 @@ function renderElement(layout: PreviewElementLayout, template: TemplateContract)
   const { element, style } = layout
 
   if (element.kind === 'text') {
-    return renderTextElement(layout as PreviewElementLayout & { element: TemplateTextElement })
+    return <TextPreviewElement key={element.id} {...(layout as PreviewElementLayout & { element: TemplateTextElement })} />
   }
 
   if (element.kind === 'shape') {

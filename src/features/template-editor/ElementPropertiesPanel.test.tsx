@@ -230,6 +230,9 @@ describe('ElementPropertiesPanel', () => {
         'fontFamily',
         'color',
         'textAlign',
+        'fitInBox',
+        'fitMode',
+        'minScaleX',
       ])
 
       const colorControl = findControl(view.container, 'color')
@@ -432,6 +435,63 @@ describe('ElementPropertiesPanel', () => {
         style: {
           ...textElement.style,
           fontSize: 72,
+        },
+      })
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('calls onElementChange with a text behavior patch when fitInBox changes', async () => {
+    const { textElement } = createFixtureElements()
+    const onElementChange = vi.fn()
+    const view = await renderElementPropertiesPanel({
+      element: textElement,
+      onElementChange,
+    })
+
+    try {
+      const fitInBoxControl = findControl(view.container, 'fitInBox')
+
+      expect(fitInBoxControl).toBeDefined()
+      expect(fitInBoxControl).toBeInstanceOf(HTMLInputElement)
+
+      await act(async () => {
+        changeCheckbox(fitInBoxControl as HTMLInputElement, false)
+      })
+
+      expect(onElementChange).toHaveBeenCalledWith(textElement.id, {
+        behavior: {
+          ...textElement.behavior,
+          fitInBox: false,
+        },
+      })
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('calls onElementChange with a text behavior patch when minScaleX changes', async () => {
+    const { textElement } = createFixtureElements()
+    const onElementChange = vi.fn()
+    const view = await renderElementPropertiesPanel({
+      element: textElement,
+      onElementChange,
+    })
+
+    try {
+      const minScaleXControl = findControl(view.container, 'minScaleX')
+
+      expect(minScaleXControl).toBeDefined()
+
+      await act(async () => {
+        changeTextLikeControl(minScaleXControl!, '0.7')
+      })
+
+      expect(onElementChange).toHaveBeenCalledWith(textElement.id, {
+        behavior: {
+          ...textElement.behavior,
+          minScaleX: 0.7,
         },
       })
     } finally {

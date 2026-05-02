@@ -34,6 +34,12 @@ export interface TemplateTextStyle {
   textAlign: 'left' | 'center' | 'right'
 }
 
+export interface TemplateTextBehavior {
+  fitInBox?: boolean
+  fitMode?: 'scaleX'
+  minScaleX?: number
+}
+
 export interface TemplateImageStyle {
   opacity: number
   objectFit: 'contain' | 'cover' | 'fill'
@@ -63,6 +69,7 @@ export interface TemplateTextElement extends TemplateElementBase {
   sourceField?: string
   fallbackText: string
   style: TemplateTextStyle
+  behavior: TemplateTextBehavior
 }
 
 export interface TemplateImageElement extends TemplateElementBase {
@@ -275,6 +282,11 @@ export function createTextElement(input: CreateTemplateElementInput): TemplateTe
       fontFamily: 'Arial',
       color: '#FFFFFF',
       textAlign: 'left',
+    },
+    behavior: {
+      fitInBox: true,
+      fitMode: 'scaleX',
+      minScaleX: 0.5,
     },
   }
 }

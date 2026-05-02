@@ -72,6 +72,10 @@ function isTextAlign(value: unknown) {
   return value === 'left' || value === 'center' || value === 'right'
 }
 
+function isTextFitMode(value: unknown) {
+  return value === 'scaleX'
+}
+
 function isImageObjectFit(value: unknown) {
   return value === 'contain' || value === 'cover' || value === 'fill'
 }
@@ -193,6 +197,29 @@ function validateTextElement(element: TemplateValidationObject, path: string, er
 
   if (!isTextAlign(element.style.textAlign)) {
     addError(errors, `${path}.style.textAlign`, 'Text style.textAlign must be left, center, or right.')
+  }
+
+  if (element.behavior !== undefined) {
+    if (!isObject(element.behavior)) {
+      addError(errors, `${path}.behavior`, 'Text behavior must be an object.')
+      return
+    }
+
+    if (element.behavior.fitInBox !== undefined && typeof element.behavior.fitInBox !== 'boolean') {
+      addError(errors, `${path}.behavior.fitInBox`, 'Text behavior.fitInBox must be a boolean.')
+    }
+
+    if (element.behavior.fitMode !== undefined && !isTextFitMode(element.behavior.fitMode)) {
+      addError(errors, `${path}.behavior.fitMode`, 'Text behavior.fitMode must be scaleX.')
+    }
+
+    if (element.behavior.minScaleX !== undefined) {
+      const minScaleX = element.behavior.minScaleX
+
+      if (!isFiniteNumber(minScaleX) || minScaleX <= 0 || minScaleX > 1) {
+        addError(errors, `${path}.behavior.minScaleX`, 'Text behavior.minScaleX must be greater than 0 and less than or equal to 1.')
+      }
+    }
   }
 }
 
