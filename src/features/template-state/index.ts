@@ -3,6 +3,7 @@ export {
   addElement,
   addLayer,
   createTemplateEditorState,
+  duplicateLayer,
   removeElement,
   removeLayer,
   reorderElements,

@@ -19,10 +19,6 @@ function findTemplate(templates: TemplateContract[], templateId: string) {
   return templates.find((template) => template.id === templateId)
 }
 
-function createNotImplementedError(helperName: string) {
-  return new Error(`${helperName} is not implemented yet.`)
-}
-
 export function createTemplateLibraryState(
   input: CreateTemplateLibraryStateInput = {},
 ): TemplateLibraryState {
@@ -103,6 +99,7 @@ export function duplicateTemplate(
       ...template.metadata,
       createdAt: now,
       updatedAt: now,
+      duplicatedFromTemplateId: template.id,
     },
   }
 

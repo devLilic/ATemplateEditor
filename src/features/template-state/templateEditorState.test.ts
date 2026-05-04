@@ -11,6 +11,7 @@ import {
   addElement,
   addLayer,
   createTemplateEditorState,
+  duplicateLayer,
   removeElement,
   removeLayer,
   reorderElements,
@@ -356,6 +357,35 @@ describe('template editor state', () => {
       const nextState = reorderElements(state, [elementA.id])
 
       expect(nextState.template.elements).toEqual(state.template.elements)
+    })
+  })
+
+  describe('duplicateLayer', () => {
+    it('creates a copy with a new id and assigns the duplicated layer the next zIndex', () => {
+      const { template, layerA, elementA } = createTemplateWithTwoLayersAndElements()
+
+      const nextTemplate = duplicateLayer(template, layerA.id)
+      const duplicatedLayer = nextTemplate.layers.find(
+        (layer) => layer.id !== layerA.id && layer.name === `${layerA.name} Copy`,
+      )
+      const duplicatedElements = nextTemplate.elements.filter(
+        (element) => element.layerId === duplicatedLayer?.id,
+      )
+
+      expect(duplicatedLayer).toBeDefined()
+      expect(duplicatedLayer?.id).not.toBe(layerA.id)
+      expect(duplicatedLayer?.zIndex).toBe(layerA.zIndex + 1)
+      expect(duplicatedElements).toHaveLength(1)
+      expect(duplicatedElements[0].id).not.toBe(elementA.id)
+      expect(duplicatedElements[0].name).toBe(elementA.name)
+    })
+
+    it('ignores an inexistent layer id', () => {
+      const { template } = createTemplateWithTwoLayersAndElements()
+
+      const nextTemplate = duplicateLayer(template, 'layer-missing')
+
+      expect(nextTemplate).toBe(template)
     })
   })
 })

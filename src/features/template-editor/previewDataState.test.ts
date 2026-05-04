@@ -43,9 +43,12 @@ function createTemplateWithPreviewFields(): TemplateContract {
         defaultValue: '',
       },
     ],
-    previewData: {
-      title: 'Preview Title',
-      subtitle: '',
+    preview: {
+      ...template.preview,
+      sampleData: {
+        title: 'Preview Title',
+        subtitle: '',
+      },
     },
     fallbackValues: {
       title: 'Fallback Title',
@@ -57,13 +60,13 @@ function createTemplateWithPreviewFields(): TemplateContract {
 
 describe('preview data state', () => {
   describe('getPreviewFieldValue', () => {
-    it('returns previewData[fieldKey] when it exists and is a non-empty string', () => {
+    it('returns preview.sampleData[fieldKey] when it exists and is a non-empty string', () => {
       const template = createTemplateWithPreviewFields()
 
       expect(getPreviewFieldValue(template, 'title')).toBe('Preview Title')
     })
 
-    it('returns fallbackValues[fieldKey] when previewData is missing or empty', () => {
+    it('returns fallbackValues[fieldKey] when preview sampleData is missing or empty', () => {
       const template = createTemplateWithPreviewFields()
 
       expect(getPreviewFieldValue(template, 'subtitle')).toBe('Fallback Subtitle')
@@ -87,15 +90,16 @@ describe('preview data state', () => {
   })
 
   describe('setPreviewFieldValue', () => {
-    it('sets previewData[fieldKey], returns a new template, and does not mutate the original', () => {
+    it('sets preview.sampleData[fieldKey], returns a new template, and does not mutate the original', () => {
       const template = createTemplateWithPreviewFields()
 
       const nextTemplate = setPreviewFieldValue(template, 'title', 'Updated Preview Title')
 
       expect(nextTemplate).not.toBe(template)
-      expect(nextTemplate.previewData).not.toBe(template.previewData)
-      expect(nextTemplate.previewData.title).toBe('Updated Preview Title')
-      expect(template.previewData.title).toBe('Preview Title')
+      expect(nextTemplate.preview).not.toBe(template.preview)
+      expect(nextTemplate.preview.sampleData).not.toBe(template.preview.sampleData)
+      expect(nextTemplate.preview.sampleData.title).toBe('Updated Preview Title')
+      expect(template.preview.sampleData.title).toBe('Preview Title')
     })
   })
 
@@ -113,15 +117,16 @@ describe('preview data state', () => {
   })
 
   describe('removePreviewFieldValue', () => {
-    it('removes the key from previewData, returns a new template, and does not mutate the original', () => {
+    it('removes the key from preview.sampleData, returns a new template, and does not mutate the original', () => {
       const template = createTemplateWithPreviewFields()
 
       const nextTemplate = removePreviewFieldValue(template, 'title')
 
       expect(nextTemplate).not.toBe(template)
-      expect(nextTemplate.previewData).not.toBe(template.previewData)
-      expect(nextTemplate.previewData.title).toBeUndefined()
-      expect(template.previewData.title).toBe('Preview Title')
+      expect(nextTemplate.preview).not.toBe(template.preview)
+      expect(nextTemplate.preview.sampleData).not.toBe(template.preview.sampleData)
+      expect(nextTemplate.preview.sampleData.title).toBeUndefined()
+      expect(template.preview.sampleData.title).toBe('Preview Title')
     })
   })
 
@@ -206,7 +211,10 @@ describe('preview data state', () => {
             defaultValue: '',
           },
         ] satisfies TemplateEditableField[],
-        previewData: {},
+        preview: {
+          ...createDefaultTemplate().preview,
+          sampleData: {},
+        },
         fallbackValues: {},
       }
 
@@ -218,21 +226,24 @@ describe('preview data state', () => {
   })
 
   describe('applySamplePreviewData', () => {
-    it('sets previewData from createSamplePreviewData, returns a new template, and does not mutate the original', () => {
+    it('sets preview.sampleData from createSamplePreviewData, returns a new template, and does not mutate the original', () => {
       const template = {
         ...createTemplateWithPreviewFields(),
-        previewData: {},
+        preview: {
+          ...createTemplateWithPreviewFields().preview,
+          sampleData: {},
+        },
       }
 
       const nextTemplate = applySamplePreviewData(template)
 
       expect(nextTemplate).not.toBe(template)
-      expect(nextTemplate.previewData).toEqual({
+      expect(nextTemplate.preview.sampleData).toEqual({
         title: 'Fallback Title',
         subtitle: 'Fallback Subtitle',
         footer: 'Fallback Footer',
       })
-      expect(template.previewData).toEqual({})
+      expect(template.preview.sampleData).toEqual({})
     })
   })
 })

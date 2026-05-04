@@ -24,7 +24,7 @@ describe('PreviewCanvas', () => {
     expect(markup).toContain('data-testid="preview-frame"')
   })
 
-  it('renders previewData.title inside a text element', () => {
+  it('renders preview.sampleData.title inside a text element', () => {
     const template = createDefaultTemplate({
       titlePreview: 'Breaking News',
     })
@@ -86,6 +86,47 @@ describe('PreviewCanvas', () => {
     const markup = renderPreview(createDefaultTemplate(), 960, 540)
 
     expect(markup).toContain('data-testid="preview-canvas"')
+    expect(markup).toContain('data-testid="preview-frame"')
+  })
+
+  it('keeps a layer visible when visibility.mode is always', () => {
+    const template = createDefaultTemplate({
+      titlePreview: '',
+      titleFallback: '',
+    })
+
+    const markup = renderPreview({
+      ...template,
+      layers: template.layers.map((layer) => ({
+        ...layer,
+        visibility: {
+          mode: 'always' as const,
+          fieldId: template.editableFields[0]?.id,
+        },
+      })),
+    })
+
+    expect(markup).toContain('data-kind="text"')
+  })
+
+  it('hides a layer when visibility.mode is whenFieldHasValue and the linked field is empty', () => {
+    const template = createDefaultTemplate({
+      titlePreview: '',
+      titleFallback: '',
+    })
+
+    const markup = renderPreview({
+      ...template,
+      layers: template.layers.map((layer) => ({
+        ...layer,
+        visibility: {
+          mode: 'whenFieldHasValue' as const,
+          fieldId: template.editableFields[0]?.id,
+        },
+      })),
+    })
+
+    expect(markup).not.toContain('data-kind="text"')
     expect(markup).toContain('data-testid="preview-frame"')
   })
 })

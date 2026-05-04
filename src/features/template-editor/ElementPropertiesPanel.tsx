@@ -183,6 +183,58 @@ export function ElementPropertiesPanel({
     handleTextStyleChange('textAlign')(event.currentTarget.value as TemplateTextElement['style']['textAlign'])
   }
 
+  const handleFontWeightChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    handleTextStyleChange('fontWeight')(numericValue)
+  }
+
+  const handleLineHeightChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    handleTextStyleChange('lineHeight')(numericValue)
+  }
+
+  const handleLetterSpacingChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    handleTextStyleChange('letterSpacing')(numericValue)
+  }
+
+  const handleVerticalAlignChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    handleTextStyleChange('verticalAlign')(
+      event.currentTarget.value as TemplateTextElement['style']['verticalAlign'],
+    )
+  }
+
+  const handleTextTransformChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    handleTextStyleChange('textTransform')(
+      event.currentTarget.value as TemplateTextElement['style']['textTransform'],
+    )
+  }
+
+  const handleMaxLinesChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    handleTextStyleChange('maxLines')(numericValue)
+  }
+
   const handleFitInBoxChange = (event: ChangeEvent<HTMLInputElement>) => {
     handleTextBehaviorChange('fitInBox')(event.currentTarget.checked)
   }
@@ -239,6 +291,32 @@ export function ElementPropertiesPanel({
     } as Partial<TemplateElement>)
   }
 
+  const handleObjectPositionChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    if (!isImageElement(element)) {
+      return
+    }
+
+    emitPatch({
+      objectPosition: event.currentTarget.value,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleImageBorderRadiusChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isImageElement(element)) {
+      return
+    }
+
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    emitPatch({
+      borderRadius: numericValue,
+    } as Partial<TemplateElement>)
+  }
+
   const handleShapeTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
     if (!isShapeElement(element)) {
       return
@@ -284,6 +362,50 @@ export function ElementPropertiesPanel({
 
     emitPatch({
       borderWidth: numericValue,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleStrokeChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isShapeElement(element)) {
+      return
+    }
+
+    const value = event.currentTarget.value
+
+    emitPatch({
+      stroke: value || undefined,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleStrokeWidthChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isShapeElement(element)) {
+      return
+    }
+
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    emitPatch({
+      strokeWidth: numericValue,
+    } as Partial<TemplateElement>)
+  }
+
+  const handleShapeBorderRadiusChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isShapeElement(element)) {
+      return
+    }
+
+    const numericValue = parseNumericInput(event.currentTarget.value)
+
+    if (numericValue === undefined) {
+      return
+    }
+
+    emitPatch({
+      borderRadius: numericValue,
     } as Partial<TemplateElement>)
   }
 
@@ -414,6 +536,66 @@ export function ElementPropertiesPanel({
             <option value='right'>right</option>
           </FormSelect>
 
+          <FormSelect
+            label='fontWeight'
+            onChange={handleFontWeightChange}
+            value={String(element.style.fontWeight)}
+          >
+            <option value='400'>400</option>
+            <option value='500'>500</option>
+            <option value='600'>600</option>
+            <option value='700'>700</option>
+            <option value='800'>800</option>
+          </FormSelect>
+
+          <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+            <FormInput
+              label='lineHeight'
+              onChange={handleLineHeightChange}
+              onInput={handleLineHeightChange}
+              type='number'
+              value={String(element.style.lineHeight)}
+            />
+            <FormInput
+              label='letterSpacing'
+              onChange={handleLetterSpacingChange}
+              onInput={handleLetterSpacingChange}
+              type='number'
+              value={String(element.style.letterSpacing)}
+            />
+          </div>
+
+          <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+            <FormSelect
+              label='verticalAlign'
+              onChange={handleVerticalAlignChange}
+              value={element.style.verticalAlign}
+            >
+              <option value='top'>top</option>
+              <option value='middle'>middle</option>
+              <option value='bottom'>bottom</option>
+            </FormSelect>
+
+            <FormSelect
+              label='textTransform'
+              onChange={handleTextTransformChange}
+              value={element.style.textTransform}
+            >
+              <option value='none'>none</option>
+              <option value='uppercase'>uppercase</option>
+              <option value='lowercase'>lowercase</option>
+              <option value='capitalize'>capitalize</option>
+            </FormSelect>
+          </div>
+
+          <FormInput
+            label='maxLines'
+            onChange={handleMaxLinesChange}
+            onInput={handleMaxLinesChange}
+            type='number'
+            value={String(element.style.maxLines)}
+          />
+
           <FormCheckbox
             checked={element.behavior.fitInBox ?? true}
             label='fitInBox'
@@ -469,6 +651,24 @@ export function ElementPropertiesPanel({
             <option value='cover'>cover</option>
             <option value='fill'>fill</option>
           </FormSelect>
+
+          <FormSelect
+            label='objectPosition'
+            onChange={handleObjectPositionChange}
+            value={element.objectPosition}
+          >
+            <option value='left top'>left top</option>
+            <option value='center center'>center center</option>
+            <option value='right bottom'>right bottom</option>
+          </FormSelect>
+
+          <FormInput
+            label='borderRadius'
+            onChange={handleImageBorderRadiusChange}
+            onInput={handleImageBorderRadiusChange}
+            type='number'
+            value={String(element.borderRadius)}
+          />
         </FormSection>
       ) : null}
 
@@ -508,6 +708,30 @@ export function ElementPropertiesPanel({
             onInput={handleBorderWidthChange}
             type='number'
             value={String(element.borderWidth)}
+          />
+
+          <FormInput
+            label='stroke'
+            onChange={handleStrokeChange}
+            onInput={handleStrokeChange}
+            type='color'
+            value={element.stroke ?? '#000000'}
+          />
+
+          <FormInput
+            label='strokeWidth'
+            onChange={handleStrokeWidthChange}
+            onInput={handleStrokeWidthChange}
+            type='number'
+            value={String(element.strokeWidth)}
+          />
+
+          <FormInput
+            label='borderRadius'
+            onChange={handleShapeBorderRadiusChange}
+            onInput={handleShapeBorderRadiusChange}
+            type='number'
+            value={String(element.borderRadius)}
           />
         </FormSection>
       ) : null}

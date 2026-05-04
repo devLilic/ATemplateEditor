@@ -1,7 +1,9 @@
 import {
   createEmptyTemplate,
+  createField,
   createLayer,
   createTextElement,
+  type TemplateEditableField,
   type TemplateContract,
 } from './templateContract'
 
@@ -13,6 +15,34 @@ interface CreateDefaultTemplateInput {
 
 function createDefaultId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function getFieldDefaultValue(template: TemplateContract, fieldId: string) {
+  const fallbackValue = template.fallbackValues?.[fieldId]
+
+  if (typeof fallbackValue === 'string') {
+    return fallbackValue
+  }
+
+  const field = template.fields.find((currentField) => currentField.id === fieldId)
+
+  if (typeof field?.defaultValue === 'string') {
+    return field.defaultValue
+  }
+
+  const legacyField = template.editableFields?.find(
+    (currentField) => currentField.id === fieldId || currentField.key === fieldId,
+  )
+
+  if (typeof legacyField?.defaultValue === 'string') {
+    return legacyField.defaultValue
+  }
+
+  const boundTextElement = template.elements?.find(
+    (element) => element.kind === 'text' && element.sourceField === fieldId,
+  )
+
+  return boundTextElement?.kind === 'text' ? boundTextElement.fallbackText : undefined
 }
 
 export function createDefaultTemplate(input: CreateDefaultTemplateInput = {}): TemplateContract {
@@ -32,10 +62,28 @@ export function createDefaultTemplate(input: CreateDefaultTemplateInput = {}): T
     position: { x: 160, y: 820 },
     size: { width: 1400, height: 120 },
   })
+  const titleField = createField({
+    id: 'title',
+    label: 'Title',
+    required: false,
+    defaultValue: titleFallback,
+  })
+  const legacyTitleField: TemplateEditableField = {
+    ...titleField,
+    key: 'title',
+    defaultValue: titleFallback,
+  }
+  const titleBinding = {
+    id: createDefaultId('binding'),
+    fieldKey: 'title',
+    elementId: titleElement.id,
+    targetProperty: 'text' as const,
+  }
 
   return {
     ...template,
     layers: [mainLayer],
+    fields: [titleField],
     elements: [
       {
         ...titleElement,
@@ -47,30 +95,17 @@ export function createDefaultTemplate(input: CreateDefaultTemplateInput = {}): T
         },
       },
     ],
-    previewData: {
-      title: titlePreview,
+    preview: {
+      ...template.preview,
+      sampleData: {
+        title: titlePreview,
+      },
     },
     fallbackValues: {
       title: titleFallback,
     },
-    editableFields: [
-      {
-        id: createDefaultId('field'),
-        key: 'title',
-        label: 'Title',
-        type: 'text',
-        required: false,
-        defaultValue: titleFallback,
-      },
-    ],
-    bindings: [
-      {
-        id: createDefaultId('binding'),
-        fieldKey: 'title',
-        elementId: titleElement.id,
-        targetProperty: 'text',
-      },
-    ],
+    editableFields: [legacyTitleField],
+    bindings: [titleBinding],
     metadata: {
       ...template.metadata,
       description: 'Default broadcast graphics template',
@@ -79,13 +114,13 @@ export function createDefaultTemplate(input: CreateDefaultTemplateInput = {}): T
 }
 
 export function getTemplateFieldValue(template: TemplateContract, fieldName: string) {
-  const previewValue = template.previewData[fieldName]
+  const previewValue = template.preview.sampleData[fieldName]
 
   if (typeof previewValue === 'string' && previewValue.length > 0) {
     return previewValue
   }
 
-  const fallbackValue = template.fallbackValues[fieldName]
+  const fallbackValue = template.fallbackValues?.[fieldName]
 
   return typeof fallbackValue === 'string' ? fallbackValue : ''
 }
@@ -95,10 +130,26 @@ export function setTemplateFallbackValue(
   fieldName: string,
   value: string,
 ): TemplateContract {
+  const updateTextFallback = (sourceField?: string) => sourceField === fieldName
+
   return {
     ...template,
+    fields: template.fields.map((field) =>
+      field.id === fieldName ? { ...field, defaultValue: value } : field,
+    ),
+    editableFields: (template.editableFields ?? []).map((field) =>
+      field.id === fieldName || field.key === fieldName ? { ...field, defaultValue: value } : field,
+    ),
+    elements: (template.elements ?? []).map((element) =>
+      element.kind === 'text' && updateTextFallback(element.sourceField)
+        ? {
+            ...element,
+            fallbackText: value,
+          }
+        : element,
+    ),
     fallbackValues: {
-      ...template.fallbackValues,
+      ...(template.fallbackValues ?? {}),
       [fieldName]: value,
     },
   }
@@ -111,9 +162,12 @@ export function setTemplatePreviewValue(
 ): TemplateContract {
   return {
     ...template,
-    previewData: {
-      ...template.previewData,
-      [fieldName]: value,
+    preview: {
+      ...template.preview,
+      sampleData: {
+        ...template.preview.sampleData,
+        [fieldName]: value,
+      },
     },
   }
 }

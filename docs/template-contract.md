@@ -2,13 +2,11 @@
 
 ## Purpose
 
-Template JSON is the shared contract used by `TemplateEditor`, `OnAir Player`, and `TitleEditor`.
+Template JSON is the shared contract used by `TemplateEditor`, downstream renderers, and import/export flows.
 
-- `TemplateEditor` defines and writes the complete contract.
-- `OnAir Player` reads only the fields required for rendering and runtime behavior.
-- `TitleEditor` reads only the fields required for editable inputs and data mapping.
-
-The contract is intended to keep templates portable, predictable, and readable across applications without requiring editor-only behavior in runtime tools.
+- `TemplateEditor` authors and writes the contract.
+- Runtime tools read only the visual and output data they need.
+- The contract remains independent from React, Electron, OSC transport details, and editor-only UI state.
 
 ## Root Fields
 
@@ -17,18 +15,23 @@ The template root object includes these top-level fields:
 - `schemaVersion`
 - `id`
 - `name`
-- `type`
+- `description`
 - `canvas`
-- `layers`
-- `elements`
+- `output`
+- `fields`
 - `assets`
+- `layers`
+- `preview`
+- `metadata`
+
+The root contract does not include:
+
 - `editableFields`
-- `bindings`
 - `previewData`
-- `fallbackValues`
 - `osc`
 - `onAir`
-- `metadata`
+
+Legacy compatibility may still exist internally in some helper modules, but exported template JSON must follow the root shape above.
 
 ## Schema Versioning
 
@@ -36,26 +39,30 @@ The template root object includes these top-level fields:
 - The current contract version is `"1.0.0"`.
 - Breaking changes should increment the major version.
 - Backward-compatible changes should increment the minor or patch version.
-- Applications should reject unknown schema versions or warn clearly before attempting to continue.
-- Formal migration rules and migration tooling will be defined separately in the future.
 
 ## Canvas
 
-`canvas` defines the target composition size.
+`canvas` defines the target visual composition.
+
+Required fields:
 
 - `width`
 - `height`
 
 Current defaults:
 
-- default size is `1920x1080`
-- default aspect ratio is `16:9`
+- `width: 1920`
+- `height: 1080`
+- `aspectRatio: "16:9"`
+- `safeArea.enabled: true`
+- `safeArea.marginX: 80`
+- `safeArea.marginY: 60`
 
-The preview system is designed around this 16:9 composition model, even when the editor UI displays the frame at a scaled size.
+`safeArea` is a visual authoring guide for preview and layout. It is not runtime playback logic.
 
 ## Layers
 
-`layers` defines the visual stacking groups used by template elements.
+`layers` are the visual contract for composition structure and stacking.
 
 Each layer contains:
 
@@ -63,272 +70,173 @@ Each layer contains:
 - `name`
 - `type`
 - `visible`
+- `visibility`
 - `locked`
 - `zIndex`
 - `opacity`
 
-Layer responsibilities:
+Layer intent:
 
-- `id` is the stable identifier referenced by elements.
-- `name` is the editor-facing label.
-- `type` classifies the layer as one of:
-  - `text`
-  - `background`
-  - `image`
-- `visible` controls whether the layer should be shown.
-- `locked` marks the layer as protected from editing interactions.
-- `zIndex` defines layer order.
-- `opacity` defines layer transparency.
-
-Current layer type intent:
-
-- `text` is the default layer type for title and label content
-- `background` is intended for boxes, plates, and other backing graphics
-- `image` is intended for logo, photo, or media-oriented layers
+- `layers` are contract-level visual groups.
+- They describe ordering and visibility rules for renderable content.
+- They are not UI panels, editor tabs, or runtime timers.
 
 ## Elements
 
-`elements` defines the renderable items placed on the canvas.
+`elements` remains the renderable item list used by the preview/rendering engine.
 
-Supported element kinds:
+Supported kinds:
 
 - `text`
 - `image`
 - `shape`
 
-### Common Element Fields
+Text elements may still reference a field through `sourceField`, using the field `id` as the source identifier.
 
-All elements share these fields:
+## Output
 
-- `id`
-- `kind`
-- `layerId`
-- `name`
-- `position`
-- `size`
-- `visible`
-- `locked`
+`output` stores downstream publishing metadata.
 
-Common nested structures:
+Current supported output field:
 
-- `position.x`
-- `position.y`
-- `size.width`
-- `size.height`
+- `output.liveboard.templateName`
 
-### Text Element
+Important rules:
 
-A text element extends the common fields with:
+- The only LiveBoard-specific contract field is `output.liveboard.templateName`.
+- `TemplateEditor` does not store OSC host, OSC port, OSC addresses, or playback commands in the final contract.
+- `TemplateEditor` does not store OnAir runtime timers or transport state in the final contract.
 
-- `rotation`
-- `sourceField`
-- `fallbackText`
-- `style`
+## Fields
 
-Current text style fields:
+`fields` replaces `editableFields`.
 
-- `style.fontSize`
-- `style.fontFamily`
-- `style.color`
-- `style.textAlign`
-
-Text elements are used for labels, titles, subtitles, or any runtime text content that can later be connected through bindings.
-
-### Image Element
-
-An image element extends the common fields with:
-
-- `assetId`
-- `opacity`
-- `objectFit`
-
-Image elements do not embed image bytes directly. They reference entries from `assets` by `assetId`.
-
-### Shape Element
-
-A shape element extends the common fields with:
-
-- `shapeType`
-- `fillColor`
-- `borderColor`
-- `borderWidth`
-
-Current supported shape types:
-
-- `rectangle`
-- `ellipse`
-
-## Assets
-
-`assets` stores reusable asset references used by templates.
-
-Current role of assets:
-
-- assets describe media sources used by template elements
-- current asset type support is focused on image assets
-- image elements link to assets through `assetId`
-
-Each asset includes:
+Each field contains:
 
 - `id`
-- `name`
-- `type`
-- `source`
-- `metadata`
-
-Current source model:
-
-- `source.type`
-- `source.value`
-
-Current source types:
-
-- `local`
-- `remote`
-- `data`
-
-For image workflows:
-
-- `image` elements may contain `assetId`
-- if `assetId` resolves to an asset in `assets`, the element is considered linked
-- if `assetId` is missing or unresolved, the preview currently falls back to placeholder behavior
-- imported image files are copied into an application-managed assets folder
-- those persisted image assets use `asset.source.type = local`
-- in that case, `asset.source.value` stores the saved file path used by the editor and runtime tools
-- `metadata.previewBackgroundAssetId` may reference one asset used only as a preview background guide
-- the preview background is not a template element and is not an exportable graphic layer
-- the preview background can be set or cleared from `AssetsPanel` without changing `elements`
-
-## Editable Fields
-
-`editableFields` defines what `TitleEditor` is allowed to edit.
-
-Each editable field includes:
-
-- `id`
-- `key`
 - `label`
 - `type`
 - `required`
 - `defaultValue`
+- `placeholder`
+- `description`
 
-Field roles:
+Rules:
 
-- `key` is the stable logical identifier used by bindings
-- `label` is the human-readable name shown in editing tools
-- `type` describes the expected data type
-- `required` marks whether downstream tools should treat the field as mandatory
-- `defaultValue` provides a base value when no preview or fallback value exists
+- `id` is the stable field identifier.
+- `type` is currently `"text"`.
+- `defaultValue` is the field-level fallback value when preview data is absent.
+- `fields` is the canonical authoring contract.
 
-Current implemented field type:
+This means:
 
-- `text`
+- `fields` replaces `editableFields` as the main contract structure.
+- New code should identify fields by `id`, not by `fieldKey`.
 
-## Bindings
+## Assets
 
-`bindings` connects editable fields to template elements.
+`assets` stores reusable media references.
 
-Each binding includes:
+Each asset contains:
 
 - `id`
-- `fieldKey`
-- `elementId`
-- `targetProperty`
-
-Binding roles:
-
-- `fieldKey` points to one field from `editableFields`
-- `elementId` points to one element from `elements`
-- `targetProperty` defines what part of the element is driven by the field
-
-Current accepted binding targets:
-
-- `text`
-
-Binding maintenance rules used by the editor:
-
-- removing a field removes the bindings that reference its `key`
-- removing a field also removes associated `previewData` and `fallbackValues`
-- renaming a field key updates the bindings that referenced the previous key
-
-## Preview Data And Fallback Values
-
-`previewData` and `fallbackValues` support authoring and safe preview behavior.
-
-### Preview Data
-
-- `previewData` is used only by `TemplateEditor`
-- it exists to make preview rendering meaningful during authoring
-- it is not real playout data
-
-### Fallback Values
-
-- `fallbackValues` is used when real or preview data is missing
-- it provides safe defaults for preview and downstream rendering behavior
-
-### Value Priority
-
-Field value resolution uses this priority:
-
-1. `previewData`
-2. `fallbackValues`
-3. `editableField.defaultValue`
-4. `""`
-
-### Relationship To Other Apps
-
-- `TemplateEditor` uses `previewData` directly
-- `TitleEditor` will produce the real runtime values in the future application flow
-- `OnAir Player` should not treat `previewData` as authoritative live data
-
-## OSC And OnAir Metadata
-
-`osc` and `onAir` store metadata for future runtime integration.
-
-This part of the contract is metadata only. It is not execution logic.
-
-### OSC Metadata
-
-`osc` currently contains:
-
-- `enabled`
-- `playCommand`
-- `stopCommand`
+- `name`
+- `type`
+- `path`
 
 Important rules:
 
-- `TemplateEditor` does not send OSC
-- `osc.enabled` does not start OSC transmission inside `TemplateEditor`
-- `playCommand` and `stopCommand` are stored as metadata only
+- Assets use `path`.
+- Exported template JSON must contain `path`, not `source.type` / `source.value`.
+- Current asset type support is focused on `image`.
+- Image elements link to assets through `assetId`.
 
-### OnAir Metadata
+Example asset:
 
-`onAir` currently contains:
+```json
+{
+  "id": "asset-logo",
+  "name": "Station Logo",
+  "type": "image",
+  "path": "assets/logo.png"
+}
+```
 
-- `durationMs`
-- `autoHide`
-- `prerollMs`
-- `postrollMs`
+## Preview
 
-Runtime intent:
+`preview` stores authoring-only visual preview data.
 
-- `onAir.durationMs` can be used by `OnAir Player` for behaviors such as auto-hide timing
-- `prerollMs` and `postrollMs` are informative runtime values
-- this section is read by `OnAir Player`, not executed by `TemplateEditor`
+`preview` contains:
+
+- `sampleData`
+- `background`
+- `showSafeArea`
+- `showLayerBounds`
+
+Important changes:
+
+- `preview.sampleData` replaces `previewData`.
+- `preview.sampleData` is used only for authoring and preview.
+- It is not live playout data.
+
+Background variants:
+
+- `{ "type": "color", "value": "#111827" }`
+- `{ "type": "image", "assetId": "asset-id", "opacity": 0.24, "fitMode": "contain" }`
+
+Defaults:
+
+- `sampleData: {}`
+- `background.type: "color"`
+- `background.value: "#111827"`
+- `showSafeArea: true`
+- `showLayerBounds: false`
+
+## Metadata
+
+`metadata` stores lifecycle and editorial bookkeeping.
+
+Current fields:
+
+- `createdAt`
+- `updatedAt`
+- `duplicatedFromTemplateId`
+- `tags`
+
+This section does not define playback behavior.
+
+## Removed From Final Contract
+
+The final contract intentionally does not carry runtime transport metadata.
+
+Not part of the final template contract:
+
+- OSC host
+- OSC port
+- OSC play/stop/resume addresses
+- OSC enabled state
+- OnAir duration timers
+- preroll/postroll timers
+- auto-hide runtime state
+
+Summary:
+
+- `TemplateEditor` does not contain OSC host/port/address.
+- `TemplateEditor` does not contain OnAir runtime/timers.
+- The single LiveBoard field is `output.liveboard.templateName`.
 
 ## Default Template
 
-The default template is a neutral starting point for authoring.
-
-It currently provides:
+The default template currently provides:
 
 - a `1920x1080` canvas
+- a `16:9` aspect ratio
+- enabled safe area margins
 - one `Main Layer`
 - one `Title` text element
-- one editable field with key `title`
-- one binding from `title` to the text element `text` target
-- one preview value for `title`
-- one fallback value for `title`
+- one field with `id: "title"`
+- `preview.sampleData.title = "Sample title"`
+- `output.liveboard.templateName = ""`
 
 ## Minimal Valid Template Example
 
@@ -337,181 +245,98 @@ It currently provides:
   "schemaVersion": "1.0.0",
   "id": "template-001",
   "name": "Lower Third",
-  "type": "graphic",
+  "description": "",
   "canvas": {
     "width": 1920,
-    "height": 1080
+    "height": 1080,
+    "aspectRatio": "16:9",
+    "safeArea": {
+      "enabled": true,
+      "marginX": 80,
+      "marginY": 60
+    }
   },
+  "output": {
+    "liveboard": {
+      "templateName": ""
+    }
+  },
+  "fields": [
+    {
+      "id": "title",
+      "label": "Title",
+      "type": "text",
+      "required": false,
+      "defaultValue": "Breaking News"
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset-logo",
+      "name": "Station Logo",
+      "type": "image",
+      "path": "assets/logo.png"
+    }
+  ],
   "layers": [
     {
       "id": "layer-main",
       "name": "Main Layer",
       "type": "text",
       "visible": true,
+      "visibility": {
+        "mode": "always"
+      },
       "locked": false,
       "zIndex": 0,
       "opacity": 1
     }
   ],
-  "elements": [
-    {
-      "id": "element-title",
-      "kind": "text",
-      "layerId": "layer-main",
-      "name": "Title",
-      "position": {
-        "x": 120,
-        "y": 120
-      },
-      "size": {
-        "width": 800,
-        "height": 100
-      },
-      "visible": true,
-      "locked": false,
-      "rotation": 0,
-      "fallbackText": "Breaking News",
-      "style": {
-        "fontSize": 48,
-        "fontFamily": "Arial",
-        "color": "#FFFFFF",
-        "textAlign": "left"
-      }
-    }
-  ],
-  "assets": [],
-  "editableFields": [
-    {
-      "id": "field-title",
-      "key": "title",
-      "label": "Title",
-      "type": "text",
-      "required": true,
-      "defaultValue": "Breaking News"
-    }
-  ],
-  "bindings": [
-    {
-      "id": "binding-title",
-      "fieldKey": "title",
-      "elementId": "element-title",
-      "targetProperty": "text"
-    }
-  ],
-  "previewData": {
-    "title": "Preview headline"
-  },
-  "fallbackValues": {
-    "title": "Fallback headline"
-  },
-  "osc": {
-    "enabled": false
-  },
-  "onAir": {
-    "autoHide": false,
-    "prerollMs": 0,
-    "postrollMs": 0
+  "preview": {
+    "sampleData": {
+      "title": "Preview headline"
+    },
+    "background": {
+      "type": "color",
+      "value": "#111827"
+    },
+    "showSafeArea": true,
+    "showLayerBounds": false
   },
   "metadata": {
     "createdAt": "2026-01-01T00:00:00.000Z",
-    "updatedAt": "2026-01-01T00:00:00.000Z"
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "duplicatedFromTemplateId": null,
+    "tags": []
   }
 }
 ```
 
-## Image Asset Example
-
-```json
-{
-  "assets": [
-    {
-      "id": "asset-logo",
-      "name": "Station Logo",
-      "type": "image",
-      "source": {
-        "type": "remote",
-        "value": "https://example.com/logo.png"
-      },
-      "metadata": {
-        "mimeType": "image/png"
-      }
-    }
-  ],
-  "elements": [
-    {
-      "id": "element-logo",
-      "kind": "image",
-      "layerId": "layer-main",
-      "name": "Logo",
-      "position": {
-        "x": 1600,
-        "y": 60
-      },
-      "size": {
-        "width": 220,
-        "height": 220
-      },
-      "visible": true,
-      "locked": false,
-      "assetId": "asset-logo",
-      "opacity": 1,
-      "objectFit": "contain"
-    }
-  ]
-}
-```
-
-- The asset defines the image source.
-- The image element refers to that asset through `assetId`.
-- `PreviewCanvas` can show a placeholder when the referenced asset is not resolved.
-
-## Validation Rules
-
-The validator returns an object with `valid` and `errors`. Each error includes a `path` and a short `message`.
-
-- Required root fields include `schemaVersion`, `id`, `name`, `canvas`, `layers`, `elements`, `assets`, `editableFields`, and `bindings`.
-- `canvas.width` and `canvas.height` must be numbers greater than `0`.
-- `layers` must be an array. Each layer requires a non-empty `id` and `name`, boolean `visible` and `locked`, numeric `zIndex`, and `opacity` between `0` and `1`.
-- `layer.type` is required and must be one of `text`, `background`, or `image`.
-- `elements` must be an array. Each element requires a non-empty `id`, `layerId`, `kind`, and `name`, valid `position` and `size`, boolean `visible` and `locked`, and kind-specific fields for `text`, `image`, or `shape`.
-- Each element `layerId` must reference an existing layer id.
-- `editableFields` must be an array. Each field requires a non-empty `id`, `key`, and `label`, a valid `type`, and boolean `required`.
-- Editable field types currently accepted by validation are `text`.
-- `bindings` must be an array. Each binding requires a non-empty `id`, `fieldKey`, `elementId`, and valid `targetProperty`.
-- Binding `fieldKey` must reference an existing editable field key, and `elementId` must reference an existing element id.
-- Accepted binding `targetProperty` values are `text`.
-
 ## Export / Import JSON
 
-- Export uses `JSON.stringify(template, null, 2)`, so the produced JSON is indented with `2` spaces.
-- Import starts with `JSON.parse` on the provided input text.
-- After parsing, import runs `validateTemplate()` on the parsed value.
-- Import rejects invalid JSON and returns an error at path `$` with the message `Invalid JSON`.
-- Import rejects templates that do not pass validation and returns the validator errors with their `path` and `message`.
-- Import preserves the template `id`; importing an exported template keeps the same identifier.
-- The current editor UI exposes export and import through textareas. It does not use a file picker yet.
+- Export uses `JSON.stringify(template, null, 2)`.
+- Import starts with `JSON.parse`.
+- Import validates the parsed object before accepting it.
+- Exported asset references use `path`.
+- Exported preview authoring data uses `preview.sampleData`.
 
 ## Application Compatibility
 
 ### TemplateEditor
 
-- `TemplateEditor` reads and writes the full contract.
-- It uses `previewData` for local preview behavior.
-- It uses `fallbackValues` for preview simulation when data is missing.
-- It does not send OSC.
+- Reads and writes the final contract.
+- Uses `fields` as the canonical editable data definition.
+- Uses `preview.sampleData` for local preview authoring.
+- Does not store OSC transport config in the final contract.
+- Does not store OnAir runtime timers in the final contract.
 
-### TitleEditor
+### LiveBoard Integration
 
-- `TitleEditor` reads `editableFields`.
-- It reads `bindings` as logical mapping information.
-- It produces the real field values used by downstream runtime flows.
-- It does not modify the template layout structure.
+- Reads `output.liveboard.templateName` when a template needs a LiveBoard identifier.
+- No other LiveBoard transport or runtime settings are stored in the template contract.
 
-### OnAir Player
+### Render / Preview Engines
 
-- `OnAir Player` reads `canvas`, `layers`, and `elements`.
-- It reads `assets`.
-- It reads `bindings`.
-- It reads `fallbackValues`.
-- It reads `osc` and `onAir`.
-- OSC transmission belongs only to `OnAir Player`, not to `TemplateEditor`.
+- Read `canvas`, `layers`, `elements`, `assets`, and `preview`.
+- Treat `layers` as visual contract structure.
+- Resolve image assets through `assetId -> assets[].path`.

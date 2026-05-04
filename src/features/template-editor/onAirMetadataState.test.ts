@@ -21,20 +21,31 @@ function createTemplateFixture(): TemplateContract {
   return {
     ...template,
     onAir: {
-      durationMs: 5000,
+      mode: 'timed',
+      durationSeconds: 5,
       autoHide: true,
       prerollMs: 250,
       postrollMs: 750,
     },
     osc: {
       enabled: true,
-      playCommand: {
-        address: '/template/play',
-        args: ['lower-third', 1],
+      target: {
+        host: '127.0.0.1',
+        port: 9000,
       },
-      stopCommand: {
-        address: '/template/stop',
-        args: ['lower-third'],
+      commands: {
+        play: {
+          address: '/template/play',
+          args: ['lower-third', 1],
+        },
+        stop: {
+          address: '/template/stop',
+          args: ['lower-third'],
+        },
+        resume: {
+          address: '/template/resume',
+          args: ['lower-third'],
+        },
       },
     },
   }
@@ -46,17 +57,26 @@ describe('onAirMetadataState', () => {
       const template = createTemplateFixture()
 
       expect(getOnAirMetadata(template)).toEqual({
-        durationMs: 5000,
+        mode: 'timed',
+        durationSeconds: 5,
         autoHide: true,
         prerollMs: 250,
         postrollMs: 750,
         oscEnabled: true,
+        oscTarget: {
+          host: '127.0.0.1',
+          port: 9000,
+        },
         playCommand: {
           address: '/template/play',
           args: ['lower-third', 1],
         },
         stopCommand: {
           address: '/template/stop',
+          args: ['lower-third'],
+        },
+        resumeCommand: {
+          address: '/template/resume',
           args: ['lower-third'],
         },
       })
@@ -75,13 +95,15 @@ describe('onAirMetadataState', () => {
       expect(nextTemplate).not.toBe(template)
       expect(nextTemplate.onAir).not.toBe(template.onAir)
       expect(nextTemplate.onAir).toEqual({
-        durationMs: 5000,
+        mode: 'timed',
+        durationSeconds: 5,
         autoHide: false,
         prerollMs: 250,
         postrollMs: 1200,
       })
       expect(template.onAir).toEqual({
-        durationMs: 5000,
+        mode: 'timed',
+        durationSeconds: 5,
         autoHide: true,
         prerollMs: 250,
         postrollMs: 750,
@@ -95,9 +117,12 @@ describe('onAirMetadataState', () => {
 
       const nextTemplate = updateOscConfig(template, {
         enabled: false,
-        stopCommand: {
-          address: '/template/hard-stop',
-          args: ['lower-third'],
+        commands: {
+          ...template.osc.commands,
+          stop: {
+            address: '/template/hard-stop',
+            args: ['lower-third'],
+          },
         },
       })
 
@@ -105,38 +130,58 @@ describe('onAirMetadataState', () => {
       expect(nextTemplate.osc).not.toBe(template.osc)
       expect(nextTemplate.osc).toEqual({
         enabled: false,
-        playCommand: {
-          address: '/template/play',
-          args: ['lower-third', 1],
+        target: {
+          host: '127.0.0.1',
+          port: 9000,
         },
-        stopCommand: {
-          address: '/template/hard-stop',
-          args: ['lower-third'],
+        commands: {
+          play: {
+            address: '/template/play',
+            args: ['lower-third', 1],
+          },
+          stop: {
+            address: '/template/hard-stop',
+            args: ['lower-third'],
+          },
+          resume: {
+            address: '/template/resume',
+            args: ['lower-third'],
+          },
         },
       })
       expect(template.osc).toEqual({
         enabled: true,
-        playCommand: {
-          address: '/template/play',
-          args: ['lower-third', 1],
+        target: {
+          host: '127.0.0.1',
+          port: 9000,
         },
-        stopCommand: {
-          address: '/template/stop',
-          args: ['lower-third'],
+        commands: {
+          play: {
+            address: '/template/play',
+            args: ['lower-third', 1],
+          },
+          stop: {
+            address: '/template/stop',
+            args: ['lower-third'],
+          },
+          resume: {
+            address: '/template/resume',
+            args: ['lower-third'],
+          },
         },
       })
     })
   })
 
   describe('setOnAirDuration', () => {
-    it('sets durationMs when the value is a number >= 0 and ignores negative or NaN values', () => {
+    it('sets durationSeconds when the value is a number >= 0 and ignores negative or NaN values', () => {
       const template = createTemplateFixture()
 
       const updatedTemplate = setOnAirDuration(template, 9000)
       const negativeTemplate = setOnAirDuration(template, -1)
       const nanTemplate = setOnAirDuration(template, Number.NaN)
 
-      expect(updatedTemplate.onAir.durationMs).toBe(9000)
+      expect(updatedTemplate.onAir.durationSeconds).toBe(9000)
       expect(negativeTemplate).toBe(template)
       expect(nanTemplate).toBe(template)
     })
@@ -171,7 +216,7 @@ describe('onAirMetadataState', () => {
         args: ['ignored'],
       })
 
-      expect(updatedTemplate.osc.playCommand).toEqual({
+      expect(updatedTemplate.osc.commands.play).toEqual({
         address: '/template/new-play',
         args: ['headline', true],
       })
@@ -192,7 +237,7 @@ describe('onAirMetadataState', () => {
         args: ['ignored'],
       })
 
-      expect(updatedTemplate.osc.stopCommand).toEqual({
+      expect(updatedTemplate.osc.commands.stop).toEqual({
         address: '/template/new-stop',
         args: ['headline', false],
       })
@@ -208,8 +253,15 @@ describe('onAirMetadataState', () => {
 
       expect(nextTemplate.osc).toEqual({
         enabled: true,
-        playCommand: undefined,
-        stopCommand: undefined,
+        target: {
+          host: '127.0.0.1',
+          port: 9000,
+        },
+        commands: {
+          play: undefined,
+          stop: undefined,
+          resume: undefined,
+        },
       })
       expect(template.osc.enabled).toBe(true)
     })
@@ -231,15 +283,23 @@ describe('onAirMetadataState', () => {
 
       expect(normalizedTemplate).not.toBe(incompleteTemplate)
       expect(normalizedTemplate.onAir).toEqual({
-        durationMs: undefined,
+        mode: 'manual',
+        durationSeconds: undefined,
         autoHide: false,
         prerollMs: 0,
         postrollMs: 0,
       })
       expect(normalizedTemplate.osc).toEqual({
         enabled: false,
-        playCommand: undefined,
-        stopCommand: undefined,
+        target: {
+          host: '127.0.0.1',
+          port: 9000,
+        },
+        commands: {
+          play: undefined,
+          stop: undefined,
+          resume: undefined,
+        },
       })
       expect((incompleteTemplate as unknown as { onAir?: unknown }).onAir).toBeUndefined()
       expect((incompleteTemplate as unknown as { osc?: unknown }).osc).toBeUndefined()

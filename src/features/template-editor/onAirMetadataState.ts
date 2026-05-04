@@ -3,21 +3,26 @@ import type {
   TemplateOnAirConfig,
   TemplateOscCommand,
   TemplateOscConfig,
+  TemplateOscTarget,
 } from '@/shared/template-contract/templateContract'
 
 export interface OnAirMetadataSnapshot {
-  durationMs: number | undefined
+  mode: TemplateOnAirConfig['mode']
+  durationSeconds: number | undefined
   autoHide: boolean
   prerollMs: number
   postrollMs: number
   oscEnabled: boolean
+  oscTarget: TemplateOscTarget
   playCommand: TemplateOscCommand | undefined
   stopCommand: TemplateOscCommand | undefined
+  resumeCommand: TemplateOscCommand | undefined
 }
 
 function getDefaultOnAirConfig(): TemplateOnAirConfig {
   return {
-    durationMs: undefined,
+    mode: 'manual',
+    durationSeconds: undefined,
     autoHide: false,
     prerollMs: 0,
     postrollMs: 0,
@@ -27,8 +32,15 @@ function getDefaultOnAirConfig(): TemplateOnAirConfig {
 function getDefaultOscConfig(): TemplateOscConfig {
   return {
     enabled: false,
-    playCommand: undefined,
-    stopCommand: undefined,
+    target: {
+      host: '127.0.0.1',
+      port: 9000,
+    },
+    commands: {
+      play: undefined,
+      stop: undefined,
+      resume: undefined,
+    },
   }
 }
 
@@ -36,21 +48,41 @@ export function getOnAirMetadata(template: TemplateContract): OnAirMetadataSnaps
   const normalizedTemplate = normalizeOnAirMetadata(template)
 
   return {
-    durationMs: normalizedTemplate.onAir.durationMs,
+    mode: normalizedTemplate.onAir.mode,
+    durationSeconds: normalizedTemplate.onAir.durationSeconds,
     autoHide: normalizedTemplate.onAir.autoHide,
     prerollMs: normalizedTemplate.onAir.prerollMs,
     postrollMs: normalizedTemplate.onAir.postrollMs,
     oscEnabled: normalizedTemplate.osc.enabled,
-    playCommand: normalizedTemplate.osc.playCommand,
-    stopCommand: normalizedTemplate.osc.stopCommand,
+    oscTarget: normalizedTemplate.osc.target,
+    playCommand: normalizedTemplate.osc.commands.play,
+    stopCommand: normalizedTemplate.osc.commands.stop,
+    resumeCommand: normalizedTemplate.osc.commands.resume,
   }
 }
 
 export function normalizeOnAirMetadata(template: TemplateContract): TemplateContract {
+  const defaultOnAir = getDefaultOnAirConfig()
+  const defaultOsc = getDefaultOscConfig()
+
   return {
     ...template,
-    onAir: template.onAir ?? getDefaultOnAirConfig(),
-    osc: template.osc ?? getDefaultOscConfig(),
+    onAir: {
+      ...defaultOnAir,
+      ...(template.onAir ?? {}),
+    },
+    osc: {
+      ...defaultOsc,
+      ...(template.osc ?? {}),
+      target: {
+        ...defaultOsc.target,
+        ...(template.osc?.target ?? {}),
+      },
+      commands: {
+        ...defaultOsc.commands,
+        ...(template.osc?.commands ?? {}),
+      },
+    },
   }
 }
 
@@ -84,13 +116,16 @@ export function updateOscConfig(
   }
 }
 
-export function setOnAirDuration(template: TemplateContract, durationMs: number): TemplateContract {
-  if (!Number.isFinite(durationMs) || durationMs < 0) {
+export function setOnAirDuration(
+  template: TemplateContract,
+  durationSeconds: number,
+): TemplateContract {
+  if (!Number.isFinite(durationSeconds) || durationSeconds < 0) {
     return template
   }
 
   return updateOnAirConfig(template, {
-    durationMs,
+    durationSeconds,
   })
 }
 
@@ -115,7 +150,10 @@ export function setOscPlayCommand(
   }
 
   return updateOscConfig(template, {
-    playCommand: command,
+    commands: {
+      ...normalizeOnAirMetadata(template).osc.commands,
+      play: command,
+    },
   })
 }
 
@@ -128,13 +166,20 @@ export function setOscStopCommand(
   }
 
   return updateOscConfig(template, {
-    stopCommand: command,
+    commands: {
+      ...normalizeOnAirMetadata(template).osc.commands,
+      stop: command,
+    },
   })
 }
 
 export function clearOscCommands(template: TemplateContract): TemplateContract {
   return updateOscConfig(template, {
-    playCommand: undefined,
-    stopCommand: undefined,
+    commands: {
+      ...normalizeOnAirMetadata(template).osc.commands,
+      play: undefined,
+      stop: undefined,
+      resume: undefined,
+    },
   })
 }

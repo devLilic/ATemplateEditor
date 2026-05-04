@@ -1,7 +1,6 @@
 export type {
   TemplateAsset,
   TemplateAssetMetadata,
-  TemplateAssetSource,
   TemplateAssetType,
 } from './assetsRegistry'
 

@@ -37,9 +37,17 @@ function createNotImplementedError(helperName: string) {
   return new Error(`${helperName} is not implemented yet.`)
 }
 
+function createLayerCopyId() {
+  return `layer-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function createElementCopyId() {
+  return `element-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 export function createTemplateEditorState(template: TemplateContract): TemplateEditorState {
-  const firstElement = template.elements[0]
-  const firstLayer = template.layers[0]
+  const firstElement = template.elements?.[0]
+  const firstLayer = template.layers?.[0]
 
   return {
     template,
@@ -271,5 +279,41 @@ export function reorderElements(
       ...state.template,
       elements,
     },
+  }
+}
+
+export function duplicateLayer(template: TemplateContract, layerId: string): TemplateContract {
+  const sourceLayer = findLayer(template, layerId)
+
+  if (!sourceLayer) {
+    return template
+  }
+
+  const duplicatedLayerId = createLayerCopyId()
+  const duplicatedLayer = {
+    ...sourceLayer,
+    id: duplicatedLayerId,
+    name: `${sourceLayer.name} Copy`,
+    zIndex: sourceLayer.zIndex + 1,
+  }
+  const duplicatedElements = template.elements
+    .filter((element) => element.layerId === sourceLayer.id)
+    .map((element) => ({
+      ...element,
+      id: createElementCopyId(),
+      layerId: duplicatedLayerId,
+    }))
+  const nextLayers = [...template.layers, duplicatedLayer].map((layer) =>
+    layer.id === duplicatedLayer.id
+      ? layer
+      : layer.zIndex > sourceLayer.zIndex
+        ? { ...layer, zIndex: layer.zIndex + 1 }
+        : layer,
+  )
+
+  return {
+    ...template,
+    layers: nextLayers,
+    elements: [...template.elements, ...duplicatedElements],
   }
 }

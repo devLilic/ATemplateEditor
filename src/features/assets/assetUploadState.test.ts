@@ -54,10 +54,7 @@ describe('assetUploadState', () => {
     expect(asset.id).toBeTruthy()
     expect(asset.type).toBe('image')
     expect(asset.name).toBe('reference-frame.png')
-    expect(asset.source).toEqual({
-      type: 'local',
-      value: 'assets/reference-frame.png',
-    })
+    expect(asset.path).toBe('assets/reference-frame.png')
   })
 
   it('createAssetFromFileReference creates an image asset', async () => {
@@ -71,10 +68,7 @@ describe('assetUploadState', () => {
     expect(asset.id).toBeTruthy()
     expect(asset.name).toBe('Reference Frame')
     expect(asset.type).toBe('image')
-    expect(asset.source).toEqual({
-      type: 'local',
-      value: 'C:/graphics/reference-frame.png',
-    })
+    expect(asset.path).toBe('C:/graphics/reference-frame.png')
     expect(asset.metadata).toEqual(
       expect.objectContaining({
         mimeType: 'image/png',

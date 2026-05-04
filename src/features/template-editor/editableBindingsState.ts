@@ -1,11 +1,14 @@
-import type {
-  TemplateBinding,
-  TemplateContract,
-  TemplateEditableField,
+import {
+  createField,
+  type TemplateBinding,
+  type TemplateContract,
+  type TemplateEditableField,
+  type TemplateFieldContract,
 } from '@/shared/template-contract/templateContract'
 
 export interface CreateEditableFieldInput {
-  key: string
+  id?: string
+  key?: string
   label: string
   type: TemplateEditableField['type']
   required?: boolean
@@ -52,28 +55,94 @@ function removeRecordKey(record: Record<string, unknown>, key: string): Record<s
   return remainingRecord
 }
 
-export function createEditableField(input: CreateEditableFieldInput): TemplateEditableField {
+function toContractField(field: TemplateEditableField): TemplateFieldContract {
   return {
-    id: createEditableFieldId(),
-    key: input.key,
+    id: field.id,
+    label: field.label,
+    type: field.type,
+    required: field.required,
+    defaultValue: field.defaultValue,
+  }
+}
+
+function toLegacyField(field: TemplateFieldContract, key?: string): TemplateEditableField {
+  return {
+    ...field,
+    key: key ?? field.id,
+    defaultValue: field.defaultValue ?? '',
+  }
+}
+
+function listFields(template: TemplateContract): TemplateFieldContract[] {
+  if ((template.editableFields ?? []).length > 0) {
+    return (template.editableFields ?? []).map((field) => ({
+      id: field.key,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      defaultValue: field.defaultValue,
+    }))
+  }
+
+  return template.fields
+}
+
+function updateBoundTextElements(
+  template: TemplateContract,
+  currentFieldId: string,
+  nextFieldId: string,
+  nextDefaultValue?: string,
+) {
+  return (template.elements ?? []).map((element) =>
+    element.kind === 'text' && element.sourceField === currentFieldId
+      ? {
+          ...element,
+          sourceField: nextFieldId,
+          fallbackText: nextDefaultValue ?? element.fallbackText,
+        }
+      : element,
+  )
+}
+
+function clearBoundTextElements(template: TemplateContract, fieldId: string) {
+  return (template.elements ?? []).map((element) =>
+    element.kind === 'text' && element.sourceField === fieldId
+      ? {
+          ...element,
+          sourceField: undefined,
+        }
+      : element,
+  )
+}
+
+export function createEditableField(input: CreateEditableFieldInput): TemplateEditableField {
+  const fieldId = input.id ?? input.key ?? createEditableFieldId()
+  const contractField = createField({
+    id: fieldId,
     label: input.label,
-    type: input.type,
     required: input.required ?? false,
     defaultValue: input.defaultValue ?? '',
-  }
+    description: undefined,
+    placeholder: undefined,
+  })
+
+  return toLegacyField(contractField, input.key ?? fieldId)
 }
 
 export function addEditableField(
   template: TemplateContract,
   field: TemplateEditableField,
 ): TemplateContract {
-  if (template.editableFields.some((existingField) => existingField.key === field.key)) {
+  const fieldExists = (template.editableFields ?? []).some((existingField) => existingField.key === field.key)
+
+  if (fieldExists) {
     return template
   }
 
   return {
     ...template,
-    editableFields: [...template.editableFields, field],
+    fields: [...template.fields, toContractField(field)],
+    editableFields: [...(template.editableFields ?? []), field],
   }
 }
 
@@ -82,44 +151,62 @@ export function updateEditableField(
   fieldId: string,
   patch: Partial<TemplateEditableField>,
 ): TemplateContract {
-  const fieldIndex = template.editableFields.findIndex((field) => field.id === fieldId)
+  const currentField =
+    (template.editableFields ?? []).find((field) => field.id === fieldId) ??
+    listFields(template)
+      .map((field) => toLegacyField(field, field.id))
+      .find((field) => field.id === fieldId)
 
-  if (fieldIndex === -1) {
+  if (!currentField) {
     return template
   }
 
-  const currentField = template.editableFields[fieldIndex]
   const nextField: TemplateEditableField = {
     ...currentField,
     ...patch,
     id: currentField.id,
+    key:
+      typeof patch.key === 'string' && patch.key.trim().length > 0 ? patch.key : currentField.key,
+    defaultValue: patch.defaultValue ?? currentField.defaultValue,
   }
   const oldKey = currentField.key
   const newKey = nextField.key
-  const editableFields = template.editableFields.map((field, index) =>
-    index === fieldIndex ? nextField : field,
-  )
-
-  if (oldKey === newKey) {
-    return {
-      ...template,
-      editableFields,
-    }
-  }
 
   return {
     ...template,
-    editableFields,
-    bindings: template.bindings.map((binding) =>
+    fields: listFields(template).map((field) =>
+      field.id === fieldId
+        ? {
+            ...field,
+            id: field.id,
+            label: nextField.label,
+            type: nextField.type,
+            required: nextField.required,
+            defaultValue: nextField.defaultValue,
+          }
+        : field,
+    ),
+    editableFields: (template.editableFields ?? []).map((field) =>
+      field.id === fieldId ? nextField : field,
+    ),
+    bindings: (template.bindings ?? []).map((binding) =>
       binding.fieldKey === oldKey ? { ...binding, fieldKey: newKey } : binding,
     ),
-    previewData: renameRecordKey(template.previewData, oldKey, newKey),
-    fallbackValues: renameRecordKey(template.fallbackValues, oldKey, newKey),
+    preview: {
+      ...template.preview,
+      sampleData: renameRecordKey(template.preview.sampleData, oldKey, newKey),
+    },
+    fallbackValues: renameRecordKey(template.fallbackValues ?? {}, oldKey, newKey),
+    elements: updateBoundTextElements(template, oldKey, newKey, nextField.defaultValue),
   }
 }
 
 export function removeEditableField(template: TemplateContract, fieldId: string): TemplateContract {
-  const fieldToRemove = template.editableFields.find((field) => field.id === fieldId)
+  const fieldToRemove =
+    (template.editableFields ?? []).find((field) => field.id === fieldId) ??
+    listFields(template)
+      .map((field) => toLegacyField(field))
+      .find((field) => field.id === fieldId)
 
   if (!fieldToRemove) {
     return template
@@ -127,10 +214,15 @@ export function removeEditableField(template: TemplateContract, fieldId: string)
 
   return {
     ...template,
-    editableFields: template.editableFields.filter((field) => field.id !== fieldId),
-    bindings: template.bindings.filter((binding) => binding.fieldKey !== fieldToRemove.key),
-    previewData: removeRecordKey(template.previewData, fieldToRemove.key),
-    fallbackValues: removeRecordKey(template.fallbackValues, fieldToRemove.key),
+    fields: listFields(template).filter((field) => field.id !== fieldId),
+    editableFields: (template.editableFields ?? []).filter((field) => field.id !== fieldId),
+    bindings: (template.bindings ?? []).filter((binding) => binding.fieldKey !== fieldToRemove.key),
+    preview: {
+      ...template.preview,
+      sampleData: removeRecordKey(template.preview.sampleData, fieldToRemove.key),
+    },
+    fallbackValues: removeRecordKey(template.fallbackValues ?? {}, fieldToRemove.key),
+    elements: clearBoundTextElements(template, fieldToRemove.key),
   }
 }
 
@@ -144,9 +236,9 @@ export function createBinding(input: CreateBindingInput): TemplateBinding {
 }
 
 export function addBinding(template: TemplateContract, binding: TemplateBinding): TemplateContract {
-  const bindingIdExists = template.bindings.some((existingBinding) => existingBinding.id === binding.id)
-  const fieldExists = template.editableFields.some((field) => field.key === binding.fieldKey)
-  const elementExists = template.elements.some((element) => element.id === binding.elementId)
+  const bindingIdExists = (template.bindings ?? []).some((existingBinding) => existingBinding.id === binding.id)
+  const fieldExists = listFields(template).some((field) => field.id === binding.fieldKey)
+  const elementExists = (template.elements ?? []).some((element) => element.id === binding.elementId)
 
   if (bindingIdExists || !fieldExists || !elementExists) {
     return template
@@ -154,7 +246,15 @@ export function addBinding(template: TemplateContract, binding: TemplateBinding)
 
   return {
     ...template,
-    bindings: [...template.bindings, binding],
+    bindings: [...(template.bindings ?? []), binding],
+    elements: (template.elements ?? []).map((element) =>
+      element.kind === 'text' && element.id === binding.elementId && binding.targetProperty === 'text'
+        ? {
+            ...element,
+            sourceField: binding.fieldKey,
+          }
+        : element,
+    ),
   }
 }
 
@@ -163,7 +263,7 @@ export function updateBinding(
   bindingId: string,
   patch: Partial<TemplateBinding>,
 ): TemplateContract {
-  const bindingIndex = template.bindings.findIndex((binding) => binding.id === bindingId)
+  const bindingIndex = (template.bindings ?? []).findIndex((binding) => binding.id === bindingId)
 
   if (bindingIndex === -1) {
     return template
@@ -171,11 +271,11 @@ export function updateBinding(
 
   const currentBinding = template.bindings[bindingIndex]
   const nextFieldKey =
-    patch.fieldKey && template.editableFields.some((field) => field.key === patch.fieldKey)
+    patch.fieldKey && listFields(template).some((field) => field.id === patch.fieldKey)
       ? patch.fieldKey
       : currentBinding.fieldKey
   const nextElementId =
-    patch.elementId && template.elements.some((element) => element.id === patch.elementId)
+    patch.elementId && (template.elements ?? []).some((element) => element.id === patch.elementId)
       ? patch.elementId
       : currentBinding.elementId
   const nextBinding: TemplateBinding = {
@@ -191,19 +291,41 @@ export function updateBinding(
     bindings: template.bindings.map((binding, index) =>
       index === bindingIndex ? nextBinding : binding,
     ),
+    elements: (template.elements ?? []).map((element) =>
+      element.kind === 'text' && element.id === nextBinding.elementId && nextBinding.targetProperty === 'text'
+        ? {
+            ...element,
+            sourceField: nextBinding.fieldKey,
+          }
+        : element,
+    ),
   }
 }
 
 export function removeBinding(template: TemplateContract, bindingId: string): TemplateContract {
-  const hasBinding = template.bindings.some((binding) => binding.id === bindingId)
+  const bindingToRemove = (template.bindings ?? []).find((binding) => binding.id === bindingId)
 
-  if (!hasBinding) {
+  if (!bindingToRemove) {
     return template
   }
 
+  const remainingBindings = (template.bindings ?? []).filter((binding) => binding.id !== bindingId)
+
   return {
     ...template,
-    bindings: template.bindings.filter((binding) => binding.id !== bindingId),
+    bindings: remainingBindings,
+    elements: (template.elements ?? []).map((element) =>
+      element.kind === 'text' &&
+      element.id === bindingToRemove.elementId &&
+      !remainingBindings.some(
+        (binding) => binding.elementId === bindingToRemove.elementId && binding.targetProperty === 'text',
+      )
+        ? {
+            ...element,
+            sourceField: undefined,
+          }
+        : element,
+    ),
   }
 }
 
@@ -211,12 +333,47 @@ export function listBindingsForElement(
   template: TemplateContract,
   elementId: string,
 ): TemplateBinding[] {
-  return template.bindings.filter((binding) => binding.elementId === elementId)
+  const storedBindings = (template.bindings ?? []).filter((binding) => binding.elementId === elementId)
+  const derivedTextBinding = (template.elements ?? []).find(
+    (
+      element,
+    ): element is Extract<(typeof template.elements)[number], { kind: 'text' }> =>
+      element.kind === 'text' && element.id === elementId && typeof element.sourceField === 'string',
+  )
+  const derivedFieldId = derivedTextBinding?.sourceField
+
+  if (!derivedFieldId || storedBindings.some((binding) => binding.targetProperty === 'text')) {
+    return storedBindings
+  }
+
+  return [
+    ...storedBindings,
+    {
+      id: `derived-${elementId}-${derivedFieldId}`,
+      fieldKey: derivedFieldId,
+      elementId,
+      targetProperty: 'text',
+    },
+  ]
 }
 
 export function listBindingsForField(
   template: TemplateContract,
   fieldKey: string,
 ): TemplateBinding[] {
-  return template.bindings.filter((binding) => binding.fieldKey === fieldKey)
+  const storedBindings = (template.bindings ?? []).filter((binding) => binding.fieldKey === fieldKey)
+  const derivedBindings = (template.elements ?? [])
+    .filter(
+      (element): element is Extract<(typeof template.elements)[number], { kind: 'text' }> =>
+        element.kind === 'text' && element.sourceField === fieldKey,
+    )
+    .map((element) => ({
+      id: `derived-${element.id}-${fieldKey}`,
+      fieldKey,
+      elementId: element.id,
+      targetProperty: 'text' as const,
+    }))
+    .filter((binding) => !storedBindings.some((storedBinding) => storedBinding.elementId === binding.elementId))
+
+  return [...storedBindings, ...derivedBindings]
 }

@@ -1,31 +1,34 @@
 import { describe, expect, it } from 'vitest'
+import { createDefaultTemplate } from './templateDefaults'
 import {
   createEmptyTemplate,
+  createField,
   createImageElement,
   createLayer,
   createShapeElement,
   createTextElement,
+  updateTemplateMetadata,
 } from './templateContract'
 
 describe('template contract base', () => {
-  it('creates an empty template with the expected top-level contract fields', () => {
-    const template = createEmptyTemplate()
+  it('creates an empty template with the final top-level contract fields only', () => {
+    const template = createEmptyTemplate() as Record<string, unknown>
 
-    expect(template).toHaveProperty('schemaVersion')
-    expect(template).toHaveProperty('id')
-    expect(template).toHaveProperty('name')
-    expect(template).toHaveProperty('type')
-    expect(template).toHaveProperty('canvas')
-    expect(template).toHaveProperty('layers')
-    expect(template).toHaveProperty('elements')
-    expect(template).toHaveProperty('assets')
-    expect(template).toHaveProperty('editableFields')
-    expect(template).toHaveProperty('bindings')
-    expect(template).toHaveProperty('previewData')
-    expect(template).toHaveProperty('osc')
-    expect(template).toHaveProperty('onAir')
-    expect(template).toHaveProperty('metadata')
-    expect(template).toHaveProperty('fallbackValues')
+    expect(Object.keys(template).sort()).toEqual(
+      [
+        'schemaVersion',
+        'id',
+        'name',
+        'description',
+        'canvas',
+        'output',
+        'fields',
+        'assets',
+        'layers',
+        'preview',
+        'metadata',
+      ].sort(),
+    )
   })
 
   it('uses primitive defaults for the template identity fields', () => {
@@ -35,66 +38,136 @@ describe('template contract base', () => {
     expect(typeof template.id).toBe('string')
     expect(template.id.trim().length).toBeGreaterThan(0)
     expect(typeof template.name).toBe('string')
-    expect(typeof template.type).toBe('string')
+    expect(template).toHaveProperty('description')
+    expect(['string', 'undefined']).toContain(typeof template.description)
   })
 
-  it('creates a default 1920x1080 canvas', () => {
+  it('does not include removed legacy root fields', () => {
     const template = createEmptyTemplate()
 
-    expect(template.canvas).toHaveProperty('width')
-    expect(template.canvas).toHaveProperty('height')
-    expect(template.canvas.width).toBe(1920)
-    expect(template.canvas.height).toBe(1080)
+    expect(template).not.toHaveProperty('osc')
+    expect(template).not.toHaveProperty('onAir')
+    expect(template).not.toHaveProperty('editableFields')
+    expect(template).not.toHaveProperty('bindings')
+    expect(template).not.toHaveProperty('previewData')
+    expect(template).not.toHaveProperty('fallbackValues')
+  })
+
+  it('creates a default liveboard output contract', () => {
+    const template = createEmptyTemplate()
+
+    expect(template).toHaveProperty('output.liveboard')
+    expect(template).toHaveProperty('output.liveboard.templateName', '')
+  })
+
+  it('creates a default 1920x1080 16:9 canvas with safe area enabled', () => {
+    const template = createEmptyTemplate()
+
+    expect(template).toHaveProperty('canvas.width', 1920)
+    expect(template).toHaveProperty('canvas.height', 1080)
+    expect(template).toHaveProperty('canvas.aspectRatio', '16:9')
+    expect(template).toHaveProperty('canvas.safeArea.enabled', true)
+    expect(template).toHaveProperty('canvas.safeArea.marginX', 80)
+    expect(template).toHaveProperty('canvas.safeArea.marginY', 60)
   })
 
   it('uses collection defaults for template content fields', () => {
-    const template = createEmptyTemplate()
+    const template = createEmptyTemplate() as {
+      fields?: unknown[]
+      assets?: unknown[]
+      layers?: unknown[]
+    }
 
-    expect(Array.isArray(template.layers)).toBe(true)
-    expect(Array.isArray(template.elements)).toBe(true)
-    expect(Array.isArray(template.assets)).toBe(true)
-    expect(Array.isArray(template.editableFields)).toBe(true)
-    expect(Array.isArray(template.bindings)).toBe(true)
+    expect(template.fields).toEqual([])
+    expect(template.assets).toEqual([])
+    expect(template.layers).toEqual([])
   })
 
-  it('uses object defaults for preview and fallback data', () => {
+  it('uses object defaults for preview data and rendering helpers', () => {
     const template = createEmptyTemplate()
 
-    expect(template.previewData).toEqual(expect.any(Object))
-    expect(template.fallbackValues).toEqual(expect.any(Object))
+    expect(template).toHaveProperty('preview.sampleData')
+    expect(template).toHaveProperty('preview.background.type', 'color')
+    expect(template).toHaveProperty('preview.background.value', '#111827')
+    expect(template).toHaveProperty('preview.showSafeArea', true)
+    expect(template).toHaveProperty('preview.showLayerBounds', false)
   })
 
-  it('creates metadata fields for future template ownership details', () => {
+  it('creates metadata fields for template lifecycle details', () => {
     const template = createEmptyTemplate()
 
     expect(template.metadata).toHaveProperty('createdAt')
     expect(typeof template.metadata.createdAt).toBe('string')
     expect(template.metadata).toHaveProperty('updatedAt')
     expect(typeof template.metadata.updatedAt).toBe('string')
-    expect(template.metadata).toHaveProperty('author')
-    expect(['string', 'undefined']).toContain(typeof template.metadata.author)
-    expect(template.metadata).toHaveProperty('description')
-    expect(['string', 'undefined']).toContain(typeof template.metadata.description)
+    expect(template.metadata).toHaveProperty('duplicatedFromTemplateId')
+    expect((template.metadata as Record<string, unknown>).duplicatedFromTemplateId).toBeNull()
+    expect(template.metadata).toHaveProperty('tags')
+    expect(Array.isArray(template.metadata.tags)).toBe(true)
+    expect(template.metadata.tags).toEqual([])
   })
 
-  it('creates OSC defaults for future OnAir Player integration', () => {
+  it('updates template metadata immutably', () => {
     const template = createEmptyTemplate()
+    const updatedTemplate = updateTemplateMetadata(template, {
+      duplicatedFromTemplateId: 'template-source',
+      tags: ['sports', 'lower-third'],
+    } as Parameters<typeof updateTemplateMetadata>[1])
 
-    expect(template.osc.enabled).toBe(false)
-    expect(template.osc).toHaveProperty('playCommand')
-    expect(['object', 'undefined']).toContain(typeof template.osc.playCommand)
-    expect(template.osc).toHaveProperty('stopCommand')
-    expect(['object', 'undefined']).toContain(typeof template.osc.stopCommand)
+    expect(updatedTemplate).not.toBe(template)
+    expect(updatedTemplate.metadata).not.toBe(template.metadata)
+    expect((updatedTemplate.metadata as Record<string, unknown>).duplicatedFromTemplateId).toBe(
+      'template-source',
+    )
+    expect(updatedTemplate.metadata.tags).toEqual(['sports', 'lower-third'])
+    expect((template.metadata as Record<string, unknown>).duplicatedFromTemplateId).toBeNull()
+    expect(template.metadata.tags).toEqual([])
   })
 
-  it('creates onAir defaults for future playout behavior', () => {
-    const template = createEmptyTemplate()
+  it('creates a default template with one text layer, one title field, preview data, and blank liveboard template name', () => {
+    const template = createDefaultTemplate() as {
+      fields?: Array<Record<string, unknown>>
+      layers?: Array<Record<string, unknown>>
+      preview?: {
+        sampleData?: Record<string, unknown>
+      }
+      output?: {
+        liveboard?: {
+          templateName?: string
+        }
+      }
+    }
 
-    expect(template.onAir).toHaveProperty('durationMs')
-    expect(['number', 'undefined']).toContain(typeof template.onAir.durationMs)
-    expect(template.onAir.autoHide).toBe(false)
-    expect(template.onAir.prerollMs).toBe(0)
-    expect(template.onAir.postrollMs).toBe(0)
+    expect(template.layers).toHaveLength(1)
+    expect(template.layers?.[0]).toHaveProperty('type', 'text')
+
+    expect(Array.isArray(template.fields)).toBe(true)
+    expect(template.fields ?? []).toHaveLength(1)
+    expect(template.fields?.[0]).toHaveProperty('id', 'title')
+    expect(template.fields?.[0]).toHaveProperty('label', 'Title')
+    expect(template.fields?.[0]).toHaveProperty('type', 'text')
+    expect(template.fields?.[0]).toHaveProperty('required', false)
+    expect(template.fields?.[0]).toHaveProperty('defaultValue', 'Sample title')
+
+    expect(template.preview?.sampleData).toHaveProperty('title', 'Sample title')
+    expect(template.output?.liveboard?.templateName).toBe('')
+  })
+
+  it('creates a text field contract with generated defaults', () => {
+    const field = createField({
+      label: 'Headline',
+      placeholder: 'Enter headline',
+      description: 'Primary text field',
+    })
+
+    expect(typeof field.id).toBe('string')
+    expect(field.id.trim().length).toBeGreaterThan(0)
+    expect(field.label).toBe('Headline')
+    expect(field.type).toBe('text')
+    expect(field.required).toBe(false)
+    expect(field.defaultValue).toBeUndefined()
+    expect(field.placeholder).toBe('Enter headline')
+    expect(field.description).toBe('Primary text field')
   })
 
   it('creates a text element with the expected base structure', () => {
@@ -118,6 +191,12 @@ describe('template contract base', () => {
     expect(element.style).toHaveProperty('fontFamily')
     expect(element.style).toHaveProperty('color')
     expect(element.style).toHaveProperty('textAlign')
+    expect(element.style).toHaveProperty('fontWeight')
+    expect(element.style).toHaveProperty('lineHeight')
+    expect(element.style).toHaveProperty('letterSpacing')
+    expect(element.style).toHaveProperty('verticalAlign')
+    expect(element.style).toHaveProperty('textTransform')
+    expect(element.style).toHaveProperty('maxLines')
   })
 
   it('creates an image element with the expected base structure', () => {
@@ -133,6 +212,8 @@ describe('template contract base', () => {
     expect(element.size).toHaveProperty('height')
     expect(element.opacity).toBe(1)
     expect(element.objectFit).toBe('contain')
+    expect(element).toHaveProperty('objectPosition')
+    expect(element).toHaveProperty('borderRadius')
   })
 
   it('creates a shape element with the expected base structure', () => {
@@ -149,6 +230,9 @@ describe('template contract base', () => {
     expect(element).toHaveProperty('fillColor')
     expect(element).toHaveProperty('borderColor')
     expect(element.borderWidth).toBe(0)
+    expect(element).toHaveProperty('stroke')
+    expect(element).toHaveProperty('strokeWidth')
+    expect(element).toHaveProperty('borderRadius')
   })
 
   it('creates a layer with the expected default structure', () => {
@@ -159,6 +243,10 @@ describe('template contract base', () => {
     expect(layer.name).toBe('Layer')
     expect(layer.type).toBe('text')
     expect(layer.visible).toBe(true)
+    expect(layer.visibility).toEqual({
+      mode: 'always',
+      fieldId: undefined,
+    })
     expect(layer.locked).toBe(false)
     expect(layer.zIndex).toBe(0)
     expect(layer.opacity).toBe(1)

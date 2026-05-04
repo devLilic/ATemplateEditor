@@ -3,6 +3,7 @@ import type { TemplateContract, TemplateLayer } from '@/shared/template-contract
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { createTemplateEditorState, removeLayer } from '@/features/template-state'
+import { FormSelect } from './TemplateEditorFormPrimitives'
 import { reorderLayersFromTopList } from './layersPanelState'
 
 export interface LayersPanelProps {
@@ -11,6 +12,7 @@ export interface LayersPanelProps {
   onSelectLayer: (layerId: string) => void
   onTemplateChange: (template: TemplateContract) => void
   onDeleteLayer?: (layerId: string) => void
+  onDuplicateLayer?: (layerId: string) => void
 }
 
 function sortLayersTopToBottom(layers: TemplateLayer[]) {
@@ -54,6 +56,7 @@ export function LayersPanel({
   onSelectLayer,
   onTemplateChange,
   onDeleteLayer,
+  onDuplicateLayer,
 }: LayersPanelProps) {
   const [draggedLayerId, setDraggedLayerId] = useState<string>()
   const orderedLayers = sortLayersTopToBottom(template.layers)
@@ -162,6 +165,40 @@ export function LayersPanel({
             </div>
 
             <div className='mt-2'>
+              <FormSelect
+                label='visibility rule'
+                onChange={(event) => {
+                  const mode = event.currentTarget.value as TemplateLayer['visibility']['mode']
+
+                  onTemplateChange(
+                    updateLayer(template, layer.id, {
+                      visibility: {
+                        ...layer.visibility,
+                        mode,
+                        fieldId: mode === 'always' ? undefined : layer.visibility.fieldId,
+                      },
+                    }),
+                  )
+                }}
+                value={layer.visibility.mode}
+              >
+                <option value='always'>always</option>
+                <option value='whenFieldHasValue'>whenFieldHasValue</option>
+              </FormSelect>
+            </div>
+
+            <div className='mt-2 grid grid-cols-2 gap-2'>
+              <Button
+                aria-label={`Duplicate layer ${layer.name}`}
+                className='w-full justify-center'
+                onClick={() => {
+                  onDuplicateLayer?.(layer.id)
+                }}
+                variant='neutral'
+              >
+                Duplicate
+              </Button>
+
               <Button
                 aria-label={`Delete layer ${layer.name}`}
                 className='w-full justify-center'

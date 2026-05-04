@@ -1,8 +1,6 @@
 import type {
   TemplateAsset,
   TemplateAssetMetadata,
-  TemplateAssetSource,
-  TemplateAssetSourceType,
   TemplateAssetType,
   TemplateContract,
   TemplateElement,
@@ -11,7 +9,11 @@ import type {
 interface CreateAssetInput {
   name: string
   type?: TemplateAssetType
-  source: TemplateAssetSource
+  path?: string
+  source?: {
+    type?: string
+    value: string
+  }
   metadata?: TemplateAssetMetadata
 }
 
@@ -36,17 +38,17 @@ function getFileNameFromPath(filePath: string) {
 export type {
   TemplateAsset,
   TemplateAssetMetadata,
-  TemplateAssetSource,
-  TemplateAssetSourceType,
   TemplateAssetType,
 }
 
 export function createAsset(input: CreateAssetInput): TemplateAsset {
+  const path = input.path ?? input.source?.value ?? ''
+
   return {
     id: createAssetId(),
     name: input.name,
     type: input.type ?? 'image',
-    source: input.source,
+    path,
     metadata: input.metadata,
   }
 }
@@ -59,10 +61,7 @@ export function createAssetFromStoredFileReference(
   return createAsset({
     name: input.name ?? input.originalFileName ?? getFileNameFromPath(filePath),
     type: 'image',
-    source: {
-      type: 'local',
-      value: filePath,
-    },
+    path: filePath,
     metadata: {
       originalFileName: input.originalFileName,
       storedAt: new Date().toISOString(),

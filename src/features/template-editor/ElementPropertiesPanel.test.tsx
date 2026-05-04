@@ -123,6 +123,12 @@ function createFixtureElements() {
       fontFamily: 'Arial',
       color: '#FFFFFF',
       textAlign: 'center' as const,
+      fontWeight: 700,
+      lineHeight: 1.1,
+      letterSpacing: 0,
+      verticalAlign: 'middle' as const,
+      textTransform: 'uppercase' as const,
+      maxLines: 2,
     },
   }
 
@@ -137,6 +143,8 @@ function createFixtureElements() {
     assetId: 'asset-logo',
     opacity: 0.75,
     objectFit: 'contain' as const,
+    objectPosition: 'center center',
+    borderRadius: 12,
   } as RotatableElement
 
   const shapeElement = {
@@ -151,6 +159,9 @@ function createFixtureElements() {
     fillColor: '#112233',
     borderColor: '#445566',
     borderWidth: 4,
+    stroke: '#778899',
+    strokeWidth: 2,
+    borderRadius: 16,
   } as RotatableElement
 
   return {
@@ -230,6 +241,12 @@ describe('ElementPropertiesPanel', () => {
         'fontFamily',
         'color',
         'textAlign',
+        'fontWeight',
+        'lineHeight',
+        'letterSpacing',
+        'verticalAlign',
+        'textTransform',
+        'maxLines',
         'fitInBox',
         'fitMode',
         'minScaleX',
@@ -265,6 +282,8 @@ describe('ElementPropertiesPanel', () => {
         'assetId',
         'opacity',
         'objectFit',
+        'objectPosition',
+        'borderRadius',
       ])
     } finally {
       await view.cleanup()
@@ -293,6 +312,9 @@ describe('ElementPropertiesPanel', () => {
         'fillColor',
         'borderColor',
         'borderWidth',
+        'stroke',
+        'strokeWidth',
+        'borderRadius',
       ])
 
       const fillColorControl = findControl(view.container, 'fillColor')

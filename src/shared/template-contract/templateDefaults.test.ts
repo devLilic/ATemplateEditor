@@ -11,7 +11,11 @@ describe('default template factory', () => {
     const template = createDefaultTemplate()
 
     expect(template.schemaVersion).toBe('1.0.0')
-    expect(template.canvas).toEqual({ width: 1920, height: 1080 })
+    expect(template.canvas).toMatchObject({
+      width: 1920,
+      height: 1080,
+      aspectRatio: '16:9',
+    })
 
     expect(template.layers.length).toBeGreaterThanOrEqual(1)
     const mainLayer = template.layers[0]
@@ -23,7 +27,7 @@ describe('default template factory', () => {
     expect(textElement?.layerId).toBe(mainLayer.id)
     expect(textElement?.fallbackText).toBe('Sample title')
 
-    expect(template.previewData).toHaveProperty('title', 'Sample title')
+    expect(template.preview.sampleData).toHaveProperty('title', 'Sample title')
     expect(template.fallbackValues).toHaveProperty('title', 'Sample title')
     expect(template.metadata.description).toBe('Default broadcast graphics template')
   })
@@ -38,7 +42,7 @@ describe('default template factory', () => {
 
     expect(template.name).toBe('Breaking News')
     expect(template.fallbackValues).toHaveProperty('title', 'Fallback headline')
-    expect(template.previewData).toHaveProperty('title', 'Preview headline')
+    expect(template.preview.sampleData).toHaveProperty('title', 'Preview headline')
     expect(textElement?.fallbackText).toBe('Fallback headline')
     expect(template.editableFields[0].defaultValue).toBe('Fallback headline')
   })
@@ -46,7 +50,10 @@ describe('default template factory', () => {
   it('reads a template field from preview data before fallback values', () => {
     const template = {
       ...createDefaultTemplate(),
-      previewData: { title: 'Preview title' },
+      preview: {
+        ...createDefaultTemplate().preview,
+        sampleData: { title: 'Preview title' },
+      },
       fallbackValues: { title: 'Fallback title' },
     }
 
@@ -79,7 +86,10 @@ describe('default template factory', () => {
   it('reads a template field from fallback values when preview data is missing', () => {
     const template = {
       ...createDefaultTemplate(),
-      previewData: {},
+      preview: {
+        ...createDefaultTemplate().preview,
+        sampleData: {},
+      },
       fallbackValues: { title: 'Fallback title' },
     }
 
@@ -89,7 +99,10 @@ describe('default template factory', () => {
   it('returns an empty string when a template field has no preview or fallback value', () => {
     const template = {
       ...createDefaultTemplate(),
-      previewData: {},
+      preview: {
+        ...createDefaultTemplate().preview,
+        sampleData: {},
+      },
       fallbackValues: {},
     }
 
@@ -111,12 +124,15 @@ describe('default template factory', () => {
   it('sets a template preview value without mutating the original template', () => {
     const template = {
       ...createDefaultTemplate(),
-      previewData: {},
+      preview: {
+        ...createDefaultTemplate().preview,
+        sampleData: {},
+      },
     }
     const updatedTemplate = setTemplatePreviewValue(template, 'title', 'Preview')
 
     expect(updatedTemplate).not.toBe(template)
-    expect(template.previewData).not.toHaveProperty('title')
-    expect(updatedTemplate.previewData).toHaveProperty('title', 'Preview')
+    expect(template.preview.sampleData).not.toHaveProperty('title')
+    expect(updatedTemplate.preview.sampleData).toHaveProperty('title', 'Preview')
   })
 })

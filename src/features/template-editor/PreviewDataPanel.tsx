@@ -19,15 +19,15 @@ export function PreviewDataPanel({ template, onTemplateChange }: PreviewDataPane
   const previewFields = listPreviewFields(template)
 
   const handlePreviewValueChange =
-    (fieldKey: string) =>
+    (fieldId: string) =>
     (event: ChangeEvent<HTMLInputElement>) => {
-      onTemplateChange(setPreviewFieldValue(template, fieldKey, event.currentTarget.value))
+      onTemplateChange(setPreviewFieldValue(template, fieldId, event.currentTarget.value))
     }
 
   const handleFallbackValueChange =
-    (fieldKey: string) =>
+    (fieldId: string) =>
     (event: ChangeEvent<HTMLInputElement>) => {
-      onTemplateChange(setFallbackFieldValue(template, fieldKey, event.currentTarget.value))
+      onTemplateChange(setFallbackFieldValue(template, fieldId, event.currentTarget.value))
     }
 
   if (previewFields.length === 0) {

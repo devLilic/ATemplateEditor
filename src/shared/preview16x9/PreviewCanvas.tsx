@@ -12,6 +12,7 @@ import type {
   TemplateContract,
   TemplateElement,
   TemplateImageElement,
+  TemplateLayer,
   TemplateShapeElement,
   TemplateTextElement,
 } from '../template-contract/templateContract'
@@ -151,9 +152,33 @@ function sortElementsByLayer(template: TemplateContract) {
   })
 }
 
+function isLayerVisible(template: TemplateContract, layer: TemplateLayer) {
+  if (layer.visible === false) {
+    return false
+  }
+
+  if (layer.visibility.mode !== 'whenFieldHasValue' || !layer.visibility.fieldId) {
+    return true
+  }
+
+  const field =
+    template.fields.find((currentField) => currentField.id === layer.visibility.fieldId) ??
+    template.editableFields.find((editableField) => editableField.id === layer.visibility.fieldId)
+
+  if (!field) {
+    return false
+  }
+
+  return getTemplateFieldValue(template, field.id).trim().length > 0
+}
+
 function getPreviewBackgroundAsset(template: TemplateContract): TemplateAsset | undefined {
   const assetId =
-    template.metadata.previewBackgroundAssetId ?? template.metadata.referenceFrameAssetId
+    template.preview.background.type === 'image'
+      ? template.preview.background.assetId
+      : template.preview.background.type === 'asset'
+      ? template.preview.background.assetId
+      : template.metadata.previewBackgroundAssetId ?? template.metadata.referenceFrameAssetId
 
   if (!assetId) {
     return undefined
@@ -162,14 +187,25 @@ function getPreviewBackgroundAsset(template: TemplateContract): TemplateAsset | 
   return template.assets.find((asset) => asset.id === assetId)
 }
 
+function getPreviewFrameBackground(template: TemplateContract) {
+  if (template.preview.background.type === 'color') {
+    return template.preview.background.value
+  }
+
+  return '#111827'
+}
+
 export function calculatePreviewLayout(
   template: TemplateContract,
   frame: PreviewFrameLayout,
 ): PreviewElementLayout[] {
   const layerOrder = new Map(template.layers.map((layer) => [layer.id, layer.zIndex]))
+  const visibleLayerIds = new Set(
+    template.layers.filter((layer) => isLayerVisible(template, layer)).map((layer) => layer.id),
+  )
 
   return sortElementsByLayer(template)
-    .filter((element) => element.visible !== false)
+    .filter((element) => element.visible !== false && visibleLayerIds.has(element.layerId))
     .map((element) => {
       const baseStyle: CSSProperties = {
         position: 'absolute',
@@ -438,10 +474,60 @@ function renderElement(layout: PreviewElementLayout, template: TemplateContract)
   return null
 }
 
+function renderSafeArea(frame: PreviewFrameLayout, marginX: number, marginY: number) {
+  const insetX = marginX * frame.scale
+  const insetY = marginY * frame.scale
+
+  return (
+    <div
+      aria-hidden='true'
+      data-preview-overlay='safe-area'
+      style={{
+        position: 'absolute',
+        left: insetX,
+        top: insetY,
+        width: frame.width - insetX * 2,
+        height: frame.height - insetY * 2,
+        border: '1px dashed rgba(34, 211, 238, 0.6)',
+        boxSizing: 'border-box',
+        pointerEvents: 'none',
+        zIndex: 999,
+      }}
+    />
+  )
+}
+
+function renderLayerBounds(layout: PreviewElementLayout[]) {
+  return layout.map((item) => (
+    <div
+      key={`bounds-${item.element.id}`}
+      aria-hidden='true'
+      data-preview-overlay='layer-bounds'
+      style={{
+        position: 'absolute',
+        left: item.style.left,
+        top: item.style.top,
+        width: item.style.width,
+        height: item.style.height,
+        border: '1px dashed rgba(96, 165, 250, 0.7)',
+        boxSizing: 'border-box',
+        pointerEvents: 'none',
+        zIndex: 998,
+      }}
+    />
+  ))
+}
+
 export function PreviewCanvas({ template, width, height, className }: PreviewCanvasProps) {
   const frame = calculatePreviewFrame(template.canvas.width, template.canvas.height, width, height)
   const layout = calculatePreviewLayout(template, frame)
   const previewBackgroundAsset = getPreviewBackgroundAsset(template)
+  const previewFrameBackground = getPreviewFrameBackground(template)
+  const safeArea = template.canvas.safeArea ?? {
+    enabled: true,
+    marginX: 80,
+    marginY: 60,
+  }
 
   return (
     <div
@@ -464,14 +550,14 @@ export function PreviewCanvas({ template, width, height, className }: PreviewCan
           width: frame.width,
           height: frame.height,
           overflow: 'hidden',
-          background: '#111827',
+          background: previewFrameBackground,
         }}
       >
         {previewBackgroundAsset ? (
           <img
             alt=''
             aria-hidden='true'
-            src={previewBackgroundAsset.source.value}
+            src={previewBackgroundAsset.path}
             style={{
               position: 'absolute',
               inset: 0,
@@ -485,6 +571,10 @@ export function PreviewCanvas({ template, width, height, className }: PreviewCan
           />
         ) : null}
         {layout.map((item) => renderElement(item, template))}
+        {template.preview.showLayerBounds ? renderLayerBounds(layout) : null}
+        {template.preview.showSafeArea && safeArea.enabled
+          ? renderSafeArea(frame, safeArea.marginX, safeArea.marginY)
+          : null}
       </div>
     </div>
   )

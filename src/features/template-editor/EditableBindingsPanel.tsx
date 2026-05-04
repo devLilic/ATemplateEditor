@@ -17,8 +17,8 @@ interface EditableBindingsPanelProps {
 }
 
 function getNextFieldIndex(template: TemplateContract) {
-  const usedIndices = template.editableFields
-    .map((field) => /^field(\d+)$/.exec(field.key)?.[1])
+  const usedIndices = template.fields
+    .map((field) => /^field(\d+)$/.exec(field.id)?.[1])
     .map((value) => (value ? Number(value) : undefined))
     .filter((value): value is number => Number.isInteger(value))
 
@@ -38,7 +38,7 @@ export function EditableBindingsPanel({
   const handleAddTextField = () => {
     const nextIndex = getNextFieldIndex(template)
     const nextField = createEditableField({
-      key: `field${nextIndex}`,
+      id: `field${nextIndex}`,
       label: `Field ${nextIndex}`,
       type: 'text',
     })
@@ -85,15 +85,15 @@ export function EditableBindingsPanel({
         title='Editable fields'
       >
 
-        {template.editableFields.length > 0 ? (
-          template.editableFields.map((field) => (
+        {template.fields.length > 0 ? (
+          template.fields.map((field) => (
             <div
               className='flex flex-col gap-3 rounded-md border border-ui-border bg-ui-card/25 p-3'
               key={field.id}
             >
               <div className='flex items-start justify-between gap-3'>
                 <div className='min-w-0'>
-                  <div className='truncate text-sm font-semibold text-ui-primary'>{field.key}</div>
+                  <div className='truncate text-sm font-semibold text-ui-primary'>{field.id}</div>
                   <div className='text-xs text-ui-secondary'>{field.type}</div>
                 </div>
                 <Button

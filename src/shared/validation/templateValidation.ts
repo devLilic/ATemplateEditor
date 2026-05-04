@@ -93,15 +93,59 @@ function isShapeType(value: unknown) {
 }
 
 function isEditableFieldType(value: unknown) {
-  return value === 'text' || value === 'image' || value === 'number'
+  return value === 'text'
 }
 
 function isBindingTargetProperty(value: unknown) {
-  return value === 'text' || value === 'image' || value === 'visibility'
+  return value === 'text'
 }
 
 function isEditableDefaultValue(value: unknown) {
-  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+  return typeof value === 'string'
+}
+
+function validateField(
+  field: unknown,
+  index: number,
+  errors: TemplateValidationError[],
+  fieldIds: Set<string>,
+) {
+  const path = `fields[${index}]`
+
+  if (!isObject(field)) {
+    addError(errors, path, 'Field must be an object.')
+    return
+  }
+
+  if (!isNonEmptyString(field.id)) {
+    addError(errors, `${path}.id`, 'Field id must be a non-empty string.')
+  } else {
+    fieldIds.add(field.id)
+  }
+
+  if (!isNonEmptyString(field.label)) {
+    addError(errors, `${path}.label`, 'Field label must be a non-empty string.')
+  }
+
+  if (!isEditableFieldType(field.type)) {
+    addError(errors, `${path}.type`, 'Field type must be text.')
+  }
+
+  if (typeof field.required !== 'boolean') {
+    addError(errors, `${path}.required`, 'Field required must be a boolean.')
+  }
+
+  if (field.defaultValue !== undefined && typeof field.defaultValue !== 'string') {
+    addError(errors, `${path}.defaultValue`, 'Field defaultValue must be a string.')
+  }
+
+  if (field.placeholder !== undefined && typeof field.placeholder !== 'string') {
+    addError(errors, `${path}.placeholder`, 'Field placeholder must be a string.')
+  }
+
+  if (field.description !== undefined && typeof field.description !== 'string') {
+    addError(errors, `${path}.description`, 'Field description must be a string.')
+  }
 }
 
 function validateEditableField(
@@ -148,7 +192,7 @@ function validateBinding(
   binding: unknown,
   index: number,
   errors: TemplateValidationError[],
-  fieldKeys: Set<string>,
+  fieldIds: Set<string>,
   elementIds: Set<string>,
 ) {
   const path = `bindings[${index}]`
@@ -164,8 +208,8 @@ function validateBinding(
 
   if (!isNonEmptyString(binding.fieldKey)) {
     addError(errors, `${path}.fieldKey`, 'Binding fieldKey must be a non-empty string.')
-  } else if (!fieldKeys.has(binding.fieldKey)) {
-    addError(errors, `${path}.fieldKey`, 'Editable field does not exist.')
+  } else if (!fieldIds.has(binding.fieldKey)) {
+    addError(errors, `${path}.fieldKey`, 'Field does not exist.')
   }
 
   if (!isNonEmptyString(binding.elementId)) {
@@ -346,7 +390,7 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
   const errors: TemplateValidationError[] = []
   const layerIds = new Set<string>()
   const elementIds = new Set<string>()
-  const fieldKeys = new Set<string>()
+  const fieldIds = new Set<string>()
 
   if (!isObject(input)) {
     addError(errors, '', 'Template must be an object.')
@@ -379,6 +423,32 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
     if (typeof input.canvas.height !== 'number' || input.canvas.height <= 0) {
       addError(errors, 'canvas.height', 'canvas.height must be greater than 0.')
     }
+
+    if (input.canvas.aspectRatio !== undefined && input.canvas.aspectRatio !== '16:9') {
+      addError(errors, 'canvas.aspectRatio', 'canvas.aspectRatio must be 16:9.')
+    }
+  }
+
+  if (!isObject(input.output)) {
+    addError(errors, 'output', 'output must be an object.')
+  } else if (input.output.liveboard !== undefined) {
+    if (!isObject(input.output.liveboard)) {
+      addError(errors, 'output.liveboard', 'output.liveboard must be an object.')
+    } else if (typeof input.output.liveboard.templateName !== 'string') {
+      addError(
+        errors,
+        'output.liveboard.templateName',
+        'output.liveboard.templateName must be a string.',
+      )
+    }
+  }
+
+  if (!Array.isArray(input.fields)) {
+    addError(errors, 'fields', 'fields must be an array.')
+  } else {
+    input.fields.forEach((field, index) => {
+      validateField(field, index, errors, fieldIds)
+    })
   }
 
   if (!Array.isArray(input.layers)) {
@@ -407,22 +477,99 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
 
   if (!Array.isArray(input.assets)) {
     addError(errors, 'assets', 'assets must be an array.')
+  } else {
+    input.assets.forEach((asset, index) => {
+      const path = `assets[${index}]`
+
+      if (!isObject(asset)) {
+        addError(errors, path, 'Asset must be an object.')
+        return
+      }
+
+      if (!isNonEmptyString(asset.id)) {
+        addError(errors, `${path}.id`, 'Asset id must be a non-empty string.')
+      }
+
+      if (!isNonEmptyString(asset.name)) {
+        addError(errors, `${path}.name`, 'Asset name must be a non-empty string.')
+      }
+
+      if (asset.type !== 'image') {
+        addError(errors, `${path}.type`, 'Asset type must be image.')
+      }
+
+      if (!isNonEmptyString(asset.path)) {
+        addError(errors, `${path}.path`, 'Asset path must be a non-empty string.')
+      }
+    })
   }
 
-  if (!Array.isArray(input.editableFields)) {
+  if (input.editableFields !== undefined && !Array.isArray(input.editableFields)) {
     addError(errors, 'editableFields', 'editableFields must be an array.')
-  } else {
+  } else if (Array.isArray(input.editableFields)) {
     input.editableFields.forEach((field, index) => {
-      validateEditableField(field, index, errors, fieldKeys)
+      validateEditableField(field, index, errors, fieldIds)
     })
   }
 
-  if (!Array.isArray(input.bindings)) {
+  if (input.bindings !== undefined && !Array.isArray(input.bindings)) {
     addError(errors, 'bindings', 'bindings must be an array.')
-  } else {
+  } else if (Array.isArray(input.bindings)) {
     input.bindings.forEach((binding, index) => {
-      validateBinding(binding, index, errors, fieldKeys, elementIds)
+      validateBinding(binding, index, errors, fieldIds, elementIds)
     })
+  }
+
+  if (!isObject(input.preview)) {
+    addError(errors, 'preview', 'preview must be an object.')
+  } else {
+    if (!isObject(input.preview.sampleData)) {
+      addError(errors, 'preview.sampleData', 'preview.sampleData must be an object.')
+    }
+
+    if (!isObject(input.preview.background)) {
+      addError(errors, 'preview.background', 'preview.background must be an object.')
+    }
+
+    if (typeof input.preview.showSafeArea !== 'boolean') {
+      addError(errors, 'preview.showSafeArea', 'preview.showSafeArea must be a boolean.')
+    }
+
+    if (typeof input.preview.showLayerBounds !== 'boolean') {
+      addError(errors, 'preview.showLayerBounds', 'preview.showLayerBounds must be a boolean.')
+    }
+  }
+
+  if (!isObject(input.metadata)) {
+    addError(errors, 'metadata', 'metadata must be an object.')
+  } else {
+    if (!isNonEmptyString(input.metadata.createdAt)) {
+      addError(errors, 'metadata.createdAt', 'metadata.createdAt must be a non-empty string.')
+    }
+
+    if (!isNonEmptyString(input.metadata.updatedAt)) {
+      addError(errors, 'metadata.updatedAt', 'metadata.updatedAt must be a non-empty string.')
+    }
+
+    if (
+      input.metadata.duplicatedFromTemplateId !== undefined &&
+      input.metadata.duplicatedFromTemplateId !== null &&
+      !isNonEmptyString(input.metadata.duplicatedFromTemplateId)
+    ) {
+      addError(
+        errors,
+        'metadata.duplicatedFromTemplateId',
+        'metadata.duplicatedFromTemplateId must be a string or null.',
+      )
+    }
+
+    if (
+      input.metadata.tags !== undefined &&
+      (!Array.isArray(input.metadata.tags) ||
+        input.metadata.tags.some((tag) => typeof tag !== 'string'))
+    ) {
+      addError(errors, 'metadata.tags', 'metadata.tags must be an array of strings.')
+    }
   }
 
   return {

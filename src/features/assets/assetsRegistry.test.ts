@@ -49,10 +49,7 @@ describe('assetsRegistry', () => {
     const asset = createAsset({
       name: 'Logo',
       type: 'image',
-      source: {
-        type: 'local',
-        value: 'assets/logo.png',
-      },
+      path: 'assets/logo.png',
       metadata: {
         width: 512,
         height: 512,
@@ -62,10 +59,7 @@ describe('assetsRegistry', () => {
     expect(asset.id).toBeTruthy()
     expect(asset.name).toBe('Logo')
     expect(asset.type).toBe('image')
-    expect(asset.source).toEqual({
-      type: 'local',
-      value: 'assets/logo.png',
-    })
+    expect(asset.path).toBe('assets/logo.png')
     expect(asset.metadata).toEqual({
       width: 512,
       height: 512,
@@ -77,10 +71,7 @@ describe('assetsRegistry', () => {
     const asset = createAsset({
       name: 'Logo',
       type: 'image',
-      source: {
-        type: 'local',
-        value: 'assets/logo.png',
-      },
+      path: 'assets/logo.png',
     })
 
     const nextTemplate = addAsset(template, asset)
@@ -99,20 +90,14 @@ describe('assetsRegistry', () => {
     const asset = createAsset({
       name: 'Logo',
       type: 'image',
-      source: {
-        type: 'local',
-        value: 'assets/logo.png',
-      },
+      path: 'assets/logo.png',
     })
     const template = addAsset(createTemplateFixture(), asset)
 
     const updatedTemplate = updateAsset(template, asset.id, {
       id: 'asset-overridden',
       name: 'Bug Logo',
-      source: {
-        type: 'local',
-        value: 'assets/bug-logo.png',
-      },
+      path: 'assets/bug-logo.png',
     })
     const unchangedTemplate = updateAsset(template, 'missing-asset', {
       name: 'Ignored',
@@ -122,10 +107,7 @@ describe('assetsRegistry', () => {
     expect(updatedTemplate.assets[0]).toMatchObject({
       id: asset.id,
       name: 'Bug Logo',
-      source: {
-        type: 'local',
-        value: 'assets/bug-logo.png',
-      },
+      path: 'assets/bug-logo.png',
     })
     expect(template.assets[0]).toEqual(asset)
     expect(unchangedTemplate).toBe(template)
@@ -135,10 +117,7 @@ describe('assetsRegistry', () => {
     const asset = createAsset({
       name: 'Logo',
       type: 'image',
-      source: {
-        type: 'local',
-        value: 'assets/logo.png',
-      },
+      path: 'assets/logo.png',
     })
     const template = addAsset(createTemplateFixture(), asset)
 
@@ -154,10 +133,7 @@ describe('assetsRegistry', () => {
     const asset = createAsset({
       name: 'Logo',
       type: 'image',
-      source: {
-        type: 'local',
-        value: 'assets/logo.png',
-      },
+      path: 'assets/logo.png',
     })
     const template = addAsset(createTemplateFixture(), asset)
 
@@ -169,19 +145,13 @@ describe('assetsRegistry', () => {
     const imageAsset = createAsset({
       name: 'Logo',
       type: 'image',
-      source: {
-        type: 'local',
-        value: 'assets/logo.png',
-      },
+      path: 'assets/logo.png',
     })
     const nonImageAsset = {
       id: 'asset-video',
       name: 'Clip',
       type: 'video',
-      source: {
-        type: 'local',
-        value: 'assets/clip.mp4',
-      },
+      path: 'assets/clip.mp4',
     } as never
     const template = {
       ...createTemplateFixture(),
@@ -195,10 +165,7 @@ describe('assetsRegistry', () => {
     const asset = createAsset({
       name: 'Logo',
       type: 'image',
-      source: {
-        type: 'local',
-        value: 'assets/logo.png',
-      },
+      path: 'assets/logo.png',
     })
     const { template, imageElement } = createImageTemplateFixture()
     const linkedTemplate = {

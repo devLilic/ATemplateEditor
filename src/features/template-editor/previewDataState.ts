@@ -1,9 +1,9 @@
-import type { TemplateContract, TemplateEditableField } from '@/shared/template-contract/templateContract'
+import type { TemplateContract, TemplateFieldContract } from '@/shared/template-contract/templateContract'
 
 export interface PreviewFieldState {
   key: string
   label: string
-  type: TemplateEditableField['type']
+  type: TemplateFieldContract['type']
   required: boolean
   previewValue: string | undefined
   fallbackValue: string | undefined
@@ -15,88 +15,146 @@ function getStringRecordValue(record: Record<string, unknown>, key: string): str
   return typeof value === 'string' ? value : undefined
 }
 
-export function getPreviewFieldValue(template: TemplateContract, fieldKey: string): string {
-  const previewValue = getStringRecordValue(template.previewData, fieldKey)
+function listContractFields(template: TemplateContract): TemplateFieldContract[] {
+  if ((template.editableFields ?? []).length > 0) {
+    return (template.editableFields ?? []).map((field) => ({
+      id: field.key,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      defaultValue: field.defaultValue,
+    }))
+  }
+
+  return template.fields
+}
+
+function updateBoundTextFallbacks(
+  template: TemplateContract,
+  fieldId: string,
+  value: string,
+): TemplateContract['elements'] {
+  return (template.elements ?? []).map((element) =>
+    element.kind === 'text' && element.sourceField === fieldId
+      ? {
+          ...element,
+          fallbackText: value,
+        }
+      : element,
+  )
+}
+
+export function getPreviewFieldValue(template: TemplateContract, fieldId: string): string {
+  const previewValue = getStringRecordValue(template.preview.sampleData, fieldId)
 
   if (previewValue && previewValue.length > 0) {
     return previewValue
   }
 
-  const fallbackValue = getStringRecordValue(template.fallbackValues, fieldKey)
+  const fallbackValue = getStringRecordValue(template.fallbackValues ?? {}, fieldId)
 
   if (fallbackValue !== undefined) {
     return fallbackValue
   }
 
-  const editableField = template.editableFields.find((field) => field.key === fieldKey)
+  const field = listContractFields(template).find((currentField) => currentField.id === fieldId)
 
-  if (editableField && typeof editableField.defaultValue === 'string') {
-    return editableField.defaultValue
+  if (typeof field?.defaultValue === 'string') {
+    return field.defaultValue
+  }
+
+  const boundTextElement = (template.elements ?? []).find(
+    (element) => element.kind === 'text' && element.sourceField === fieldId,
+  )
+
+  if (boundTextElement?.kind === 'text') {
+    return boundTextElement.fallbackText
   }
 
   return ''
 }
 
 export function listPreviewFields(template: TemplateContract): PreviewFieldState[] {
-  return template.editableFields.map((field) => ({
-    key: field.key,
+  return listContractFields(template).map((field) => ({
+    key: field.id,
     label: field.label,
     type: field.type,
     required: field.required,
-    previewValue: getStringRecordValue(template.previewData, field.key),
-    fallbackValue: getStringRecordValue(template.fallbackValues, field.key),
-    resolvedValue: getPreviewFieldValue(template, field.key),
+    previewValue: getStringRecordValue(template.preview.sampleData, field.id),
+    fallbackValue:
+      getStringRecordValue(template.fallbackValues ?? {}, field.id) ??
+      (typeof field.defaultValue === 'string' ? field.defaultValue : undefined),
+    resolvedValue: getPreviewFieldValue(template, field.id),
   }))
 }
 
 export function createSamplePreviewData(template: TemplateContract): Record<string, string> {
   return Object.fromEntries(
-    template.editableFields.map((field) => [field.key, getPreviewFieldValue(template, field.key)]),
+    listContractFields(template).map((field) => [field.id, getPreviewFieldValue(template, field.id)]),
   )
 }
 
 export function setPreviewFieldValue(
   template: TemplateContract,
-  fieldKey: string,
+  fieldId: string,
   value: string,
 ): TemplateContract {
   return {
     ...template,
-    previewData: {
-      ...template.previewData,
-      [fieldKey]: value,
+    preview: {
+      ...template.preview,
+      sampleData: {
+        ...template.preview.sampleData,
+        [fieldId]: value,
+      },
     },
   }
 }
 
 export function setFallbackFieldValue(
   template: TemplateContract,
-  fieldKey: string,
+  fieldId: string,
   value: string,
 ): TemplateContract {
   return {
     ...template,
+    fields: template.fields.map((field) =>
+      field.id === fieldId ? { ...field, defaultValue: value } : field,
+    ),
+    editableFields: (template.editableFields ?? []).map((field) =>
+      field.id === fieldId || field.key === fieldId ? { ...field, defaultValue: value } : field,
+    ),
+    elements: updateBoundTextFallbacks(template, fieldId, value),
     fallbackValues: {
-      ...template.fallbackValues,
-      [fieldKey]: value,
+      ...(template.fallbackValues ?? {}),
+      [fieldId]: value,
     },
   }
 }
 
-export function removePreviewFieldValue(template: TemplateContract, fieldKey: string): TemplateContract {
-  const { [fieldKey]: _removed, ...remainingPreviewData } = template.previewData
+export function removePreviewFieldValue(template: TemplateContract, fieldId: string): TemplateContract {
+  const { [fieldId]: _removed, ...remainingPreviewData } = template.preview.sampleData
 
   return {
     ...template,
-    previewData: remainingPreviewData,
+    preview: {
+      ...template.preview,
+      sampleData: remainingPreviewData,
+    },
   }
 }
 
-export function removeFallbackFieldValue(template: TemplateContract, fieldKey: string): TemplateContract {
-  const { [fieldKey]: _removed, ...remainingFallbackValues } = template.fallbackValues
+export function removeFallbackFieldValue(template: TemplateContract, fieldId: string): TemplateContract {
+  const { [fieldId]: _removed, ...remainingFallbackValues } = template.fallbackValues ?? {}
 
   return {
     ...template,
+    fields: template.fields.map((field) =>
+      field.id === fieldId ? { ...field, defaultValue: undefined } : field,
+    ),
+    editableFields: (template.editableFields ?? []).map((field) =>
+      field.id === fieldId || field.key === fieldId ? { ...field, defaultValue: '' } : field,
+    ),
     fallbackValues: remainingFallbackValues,
   }
 }
@@ -104,9 +162,12 @@ export function removeFallbackFieldValue(template: TemplateContract, fieldKey: s
 export function applySamplePreviewData(template: TemplateContract): TemplateContract {
   return {
     ...template,
-    previewData: {
-      ...template.previewData,
-      ...createSamplePreviewData(template),
+    preview: {
+      ...template.preview,
+      sampleData: {
+        ...template.preview.sampleData,
+        ...createSamplePreviewData(template),
+      },
     },
   }
 }

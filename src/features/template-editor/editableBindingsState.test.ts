@@ -111,8 +111,11 @@ function createTemplateWithFieldAndBindingFixture(): {
       ...templateWithElement,
       editableFields: [field],
       bindings: [binding],
-      previewData: {
-        [field.key]: 'Preview title',
+      preview: {
+        ...templateWithElement.preview,
+        sampleData: {
+          [field.key]: 'Preview title',
+        },
       },
       fallbackValues: {
         [field.key]: 'Fallback title',
@@ -194,7 +197,7 @@ describe('editableBindingsState', () => {
   })
 
   describe('removeEditableField', () => {
-    it('removes the field, its bindings, previewData value, and fallbackValues value immutably', () => {
+    it('removes the field, its bindings, preview sampleData value, and fallbackValues value immutably', () => {
       const { template, field } = createTemplateWithFieldAndBindingFixture()
 
       const nextTemplate = removeEditableField(template, field.id)
@@ -202,11 +205,11 @@ describe('editableBindingsState', () => {
       expect(nextTemplate).not.toBe(template)
       expect(nextTemplate.editableFields).toEqual([])
       expect(nextTemplate.bindings).toEqual([])
-      expect(nextTemplate.previewData[field.key]).toBeUndefined()
+      expect(nextTemplate.preview.sampleData[field.key]).toBeUndefined()
       expect(nextTemplate.fallbackValues[field.key]).toBeUndefined()
       expect(template.editableFields).toHaveLength(1)
       expect(template.bindings).toHaveLength(1)
-      expect(template.previewData[field.key]).toBe('Preview title')
+      expect(template.preview.sampleData[field.key]).toBe('Preview title')
       expect(template.fallbackValues[field.key]).toBe('Fallback title')
     })
   })

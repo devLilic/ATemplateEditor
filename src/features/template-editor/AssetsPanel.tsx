@@ -123,7 +123,7 @@ export function AssetsPanel({
                   {previewBackgroundAsset.name}
                 </div>
                 <div className='truncate text-xs text-ui-secondary'>
-                  {previewBackgroundAsset.source.value}
+                  {previewBackgroundAsset.path}
                 </div>
               </div>
               <Badge variant='selected'>Preview background</Badge>
@@ -155,9 +155,7 @@ export function AssetsPanel({
                   <div className='flex items-start justify-between gap-3'>
                     <div className='min-w-0'>
                       <div className='truncate text-sm font-semibold text-ui-primary'>{asset.name}</div>
-                      <div className='text-xs text-ui-secondary'>
-                        {asset.source.type} asset
-                      </div>
+                      <div className='text-xs text-ui-secondary'>{asset.type} asset</div>
                     </div>
                     <div className='flex flex-wrap gap-2'>
                       {isPreviewBackground ? <Badge variant='selected'>Preview background</Badge> : null}
@@ -165,7 +163,7 @@ export function AssetsPanel({
                     </div>
                   </div>
 
-                  <div className='truncate text-xs text-ui-secondary'>{asset.source.value}</div>
+                  <div className='truncate text-xs text-ui-secondary'>{asset.path}</div>
 
                   <div className='flex flex-col gap-2 sm:flex-row'>
                     <Button

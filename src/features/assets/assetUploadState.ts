@@ -24,16 +24,7 @@ interface CreateAssetFromFileReferenceInput {
 export function createAssetFromFileReference(
   input: CreateAssetFromFileReferenceInput,
 ): TemplateAsset {
-  const source =
-    input.dataUrl !== undefined
-      ? {
-          type: 'data' as const,
-          value: input.dataUrl,
-        }
-      : {
-          type: 'local' as const,
-          value: input.path ?? input.name,
-        }
+  const path = input.dataUrl ?? input.path ?? input.name
   const metadata: TemplateAssetMetadata | undefined =
     input.mimeType || input.width !== undefined || input.height !== undefined
       ? {
@@ -46,7 +37,7 @@ export function createAssetFromFileReference(
   return createAsset({
     name: input.name,
     type: 'image',
-    source,
+    path,
     metadata,
   })
 }

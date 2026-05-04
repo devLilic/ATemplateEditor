@@ -11,11 +11,13 @@ import {
   setOscPlayCommand,
   setOscStopCommand,
   updateOnAirConfig,
+  updateOscConfig,
 } from './onAirMetadataState'
 import {
   FormCheckbox,
   FormInput,
   FormSection,
+  FormSelect,
 } from './TemplateEditorFormPrimitives'
 
 interface OnAirMetadataPanelProps {
@@ -105,12 +107,27 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
         description='Playback timing metadata for future OnAir runtime behavior.'
         title='Playback'
       >
+        <FormSelect
+          label='mode'
+          onChange={(event) => {
+            onTemplateChange(
+              updateOnAirConfig(template, {
+                mode: event.currentTarget.value as typeof metadata.mode,
+              }),
+            )
+          }}
+          value={metadata.mode}
+        >
+          <option value='manual'>manual</option>
+          <option value='timed'>timed</option>
+        </FormSelect>
+
         <FormInput
-          label='durationMs'
+          label='durationSeconds'
           onChange={handleDurationChange}
           onInput={handleDurationChange}
           type='number'
-          value={metadata.durationMs === undefined ? '' : String(metadata.durationMs)}
+          value={metadata.durationSeconds === undefined ? '' : String(metadata.durationSeconds)}
         />
 
         <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
@@ -163,6 +180,72 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
           onInput={handleOscEnabledChange}
         />
 
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+          <FormInput
+            label='host'
+            onChange={(event) => {
+              onTemplateChange(
+                updateOscConfig(template, {
+                  target: {
+                    ...metadata.oscTarget,
+                    host: event.currentTarget.value,
+                  },
+                }),
+              )
+            }}
+            onInput={(event) => {
+              onTemplateChange(
+                updateOscConfig(template, {
+                  target: {
+                    ...metadata.oscTarget,
+                    host: event.currentTarget.value,
+                  },
+                }),
+              )
+            }}
+            type='text'
+            value={metadata.oscTarget.host}
+          />
+
+          <FormInput
+            label='port'
+            onChange={(event) => {
+              const numericValue = parseNumericInput(event.currentTarget.value)
+
+              if (numericValue === undefined) {
+                return
+              }
+
+              onTemplateChange(
+                updateOscConfig(template, {
+                  target: {
+                    ...metadata.oscTarget,
+                    port: numericValue,
+                  },
+                }),
+              )
+            }}
+            onInput={(event) => {
+              const numericValue = parseNumericInput(event.currentTarget.value)
+
+              if (numericValue === undefined) {
+                return
+              }
+
+              onTemplateChange(
+                updateOscConfig(template, {
+                  target: {
+                    ...metadata.oscTarget,
+                    port: numericValue,
+                  },
+                }),
+              )
+            }}
+            type='number'
+            value={String(metadata.oscTarget.port)}
+          />
+        </div>
+
         <FormInput
           label='play address'
           onChange={handleOscAddressChange('play')}
@@ -179,6 +262,53 @@ export function OnAirMetadataPanel({ template, onTemplateChange }: OnAirMetadata
           placeholder='/template/stop'
           type='text'
           value={metadata.stopCommand?.address ?? ''}
+        />
+
+        <FormInput
+          label='resume address'
+          onChange={(event) => {
+            const address = event.currentTarget.value
+            const existingArgs = metadata.resumeCommand?.args ?? []
+
+            if (address.trim() === '') {
+              return
+            }
+
+            onTemplateChange(
+              updateOscConfig(template, {
+                commands: {
+                  ...template.osc.commands,
+                  resume: {
+                    address,
+                    args: existingArgs,
+                  },
+                },
+              }),
+            )
+          }}
+          onInput={(event) => {
+            const address = event.currentTarget.value
+            const existingArgs = metadata.resumeCommand?.args ?? []
+
+            if (address.trim() === '') {
+              return
+            }
+
+            onTemplateChange(
+              updateOscConfig(template, {
+                commands: {
+                  ...template.osc.commands,
+                  resume: {
+                    address,
+                    args: existingArgs,
+                  },
+                },
+              }),
+            )
+          }}
+          placeholder='/template/resume'
+          type='text'
+          value={metadata.resumeCommand?.address ?? ''}
         />
       </FormSection>
     </div>
