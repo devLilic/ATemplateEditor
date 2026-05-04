@@ -3,8 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { createDefaultTemplate } from '../template-contract/templateDefaults'
 import {
-  createImageElement,
-  createShapeElement,
+  createBackgroundLayer,
+  createImageLayer,
+  createShapeLayer,
   type TemplateContract,
 } from '../template-contract/templateContract'
 import { PreviewCanvas } from './PreviewCanvas'
@@ -24,7 +25,7 @@ describe('PreviewCanvas', () => {
     expect(markup).toContain('data-testid="preview-frame"')
   })
 
-  it('renders preview.sampleData.title inside a text element', () => {
+  it('renders preview.sampleData.title inside a text layer', () => {
     const template = createDefaultTemplate({
       titlePreview: 'Breaking News',
     })
@@ -35,41 +36,58 @@ describe('PreviewCanvas', () => {
     expect(markup).toContain('data-kind="text"')
   })
 
-  it('renders shape elements with data-kind="shape"', () => {
+  it('renders shape layers with data-kind="shape"', () => {
     const template = createDefaultTemplate()
-    const shapeElement = createShapeElement({
-      layerId: template.layers[0].id,
+    const shapeLayer = createShapeLayer({
       name: 'Background box',
+      zIndex: 1,
     })
 
     const markup = renderPreview({
       ...template,
-      elements: [...template.elements, shapeElement],
+      layers: [...template.layers, shapeLayer],
     })
 
     expect(markup).toContain('data-kind="shape"')
   })
 
-  it('renders unresolved image elements with a visible placeholder marker', () => {
+  it('renders unresolved image layers with a visible placeholder marker', () => {
     const template = createDefaultTemplate()
-    const imageElement = createImageElement({
-      layerId: template.layers[0].id,
+    const imageLayer = createImageLayer({
       name: 'Logo',
+      zIndex: 1,
     })
 
     const markup = renderPreview({
       ...template,
-      elements: [...template.elements, imageElement],
+      layers: [...template.layers, imageLayer],
     })
 
     expect(markup).toContain('data-kind="image"')
     expect(markup).toMatch(/data-placeholder="true"|placeholder|missing|unresolved|no asset/i)
   })
 
-  it('does not crash when the template has no elements and renders an empty frame', () => {
+  it('renders a background layer through the final layer model', () => {
+    const template = createDefaultTemplate()
+    const backgroundLayer = createBackgroundLayer({
+      zIndex: -1,
+      style: {
+        fill: '#000000',
+      },
+    })
+
+    const markup = renderPreview({
+      ...template,
+      layers: [backgroundLayer, ...template.layers],
+    })
+
+    expect(markup).toContain('data-kind="background"')
+  })
+
+  it('does not crash when the template has no layers and renders an empty frame', () => {
     const template = {
       ...createDefaultTemplate(),
-      elements: [],
+      layers: [],
     }
 
     let markup = ''

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultTemplate } from '../template-contract/templateDefaults'
-import type { TemplateContract, TemplateTextElement } from '../template-contract/templateContract'
+import type { TemplateContract, TemplateTextLayerContract } from '../template-contract/templateContract'
 import * as PreviewCanvasModule from './PreviewCanvas'
 
 const { calculatePreviewFrame, calculatePreviewLayout } = PreviewCanvasModule
@@ -16,28 +16,29 @@ function createFitInBoxTemplate(input: {
   const template = createDefaultTemplate({
     titlePreview: input.title ?? 'Breaking News',
   })
-  const titleElement = template.elements[0] as TemplateTextElement
+  const titleLayer = template.layers[0] as TemplateTextLayerContract
 
   return {
     ...template,
-    elements: [
+    layers: [
       {
-        ...titleElement,
-        size: {
-          ...titleElement.size,
-          width: input.width ?? titleElement.size.width,
+        ...titleLayer,
+        box: {
+          ...titleLayer.box,
+          width: input.width ?? titleLayer.box.width,
         },
         style: {
-          ...titleElement.style,
-          fontSize: input.fontSize ?? titleElement.style.fontSize,
-          fontFamily: input.fontFamily ?? titleElement.style.fontFamily,
+          ...titleLayer.style,
+          fontSize: input.fontSize ?? titleLayer.style.fontSize,
+          fontFamily: input.fontFamily ?? titleLayer.style.fontFamily,
         },
         behavior: {
           fitInBox: true,
           fitMode: 'scaleX',
           minScaleX: input.minScaleX,
+          whiteSpace: 'nowrap',
         },
-      } as TemplateTextElement,
+      } as TemplateTextLayerContract,
     ],
   }
 }
@@ -98,13 +99,13 @@ describe('calculatePreviewLayout fitInBox text behavior', () => {
     expect(style.fitMode).toBe('scaleX')
   })
 
-  it('exposes the effective minScaleX as 0.5 by default', () => {
+  it('exposes the effective minScaleX as 0.65 by default', () => {
     const template = createFitInBoxTemplate()
     const frame = calculatePreviewFrame(template.canvas.width, template.canvas.height, 960, 540)
     const [layout] = calculatePreviewLayout(template, frame)
     const style = layout.style as Record<string, unknown>
 
-    expect(style.minScaleX).toBe(0.5)
+    expect(style.minScaleX).toBe(0.65)
   })
 
   it('recalculates based on text, fontSize, and fontFamily inputs', () => {

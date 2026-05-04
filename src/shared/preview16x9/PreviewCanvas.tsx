@@ -9,12 +9,12 @@ import {
 import { getTemplateFieldValue } from '../template-contract/templateDefaults'
 import type {
   TemplateAsset,
+  TemplateBackgroundLayerContract,
   TemplateContract,
-  TemplateElement,
-  TemplateImageElement,
+  TemplateImageLayerContract,
   TemplateLayer,
-  TemplateShapeElement,
-  TemplateTextElement,
+  TemplateShapeLayerContract,
+  TemplateTextLayerContract,
 } from '../template-contract/templateContract'
 
 export interface PreviewCanvasProps {
@@ -33,19 +33,10 @@ export interface PreviewFrameLayout {
 }
 
 export interface PreviewElementLayout {
-  element: TemplateElement
+  element: TemplateLayer
   style: CSSProperties
   content?: string
-}
-
-interface ShapeRuntimeStyle {
-  borderRadius?: number | string
-  rotation?: number
-  shapeType?: string
-}
-
-interface ImageRuntimeStyle {
-  rotation?: number
+  assetPath?: string
 }
 
 interface TextPreviewRuntimeStyle extends CSSProperties {
@@ -53,6 +44,7 @@ interface TextPreviewRuntimeStyle extends CSSProperties {
   fitMode?: 'scaleX'
   minScaleX?: number
   scaleX?: number
+  whiteSpace?: 'nowrap' | 'normal'
 }
 
 export interface CalculateTextScaleXInput {
@@ -95,14 +87,6 @@ export function calculateTextScaleX({
   return Math.max(minScaleX, scale)
 }
 
-function getTextBehavior(element: TemplateTextElement) {
-  return {
-    fitInBox: element.behavior?.fitInBox ?? true,
-    fitMode: element.behavior?.fitMode ?? 'scaleX',
-    minScaleX: element.behavior?.minScaleX ?? 0.5,
-  }
-}
-
 function estimateTextWidth(text: string, fontSize: number, fontFamily: string) {
   const normalizedFamily = fontFamily.trim().toLowerCase()
   const fontFactor = normalizedFamily.includes('times')
@@ -137,21 +121,6 @@ export function calculatePreviewFrame(
   }
 }
 
-function sortElementsByLayer(template: TemplateContract) {
-  const layerOrder = new Map(template.layers.map((layer) => [layer.id, layer.zIndex]))
-
-  return [...template.elements].sort((left, right) => {
-    const leftZIndex = layerOrder.get(left.layerId) ?? 0
-    const rightZIndex = layerOrder.get(right.layerId) ?? 0
-
-    if (leftZIndex !== rightZIndex) {
-      return leftZIndex - rightZIndex
-    }
-
-    return 0
-  })
-}
-
 function isLayerVisible(template: TemplateContract, layer: TemplateLayer) {
   if (layer.visible === false) {
     return false
@@ -177,8 +146,8 @@ function getPreviewBackgroundAsset(template: TemplateContract): TemplateAsset | 
     template.preview.background.type === 'image'
       ? template.preview.background.assetId
       : template.preview.background.type === 'asset'
-      ? template.preview.background.assetId
-      : template.metadata.previewBackgroundAssetId ?? template.metadata.referenceFrameAssetId
+        ? template.preview.background.assetId
+        : template.metadata.previewBackgroundAssetId ?? template.metadata.referenceFrameAssetId
 
   if (!assetId) {
     return undefined
@@ -195,132 +164,181 @@ function getPreviewFrameBackground(template: TemplateContract) {
   return '#111827'
 }
 
+function resolveAssetPath(template: TemplateContract, assetId?: string, fallbackPath?: string) {
+  if (assetId) {
+    const asset = template.assets.find((currentAsset) => currentAsset.id === assetId)
+
+    if (asset?.path) {
+      return asset.path
+    }
+  }
+
+  return fallbackPath
+}
+
 export function calculatePreviewLayout(
   template: TemplateContract,
   frame: PreviewFrameLayout,
 ): PreviewElementLayout[] {
-  const layerOrder = new Map(template.layers.map((layer) => [layer.id, layer.zIndex]))
-  const visibleLayerIds = new Set(
-    template.layers.filter((layer) => isLayerVisible(template, layer)).map((layer) => layer.id),
-  )
-
-  return sortElementsByLayer(template)
-    .filter((element) => element.visible !== false && visibleLayerIds.has(element.layerId))
-    .map((element) => {
-      const baseStyle: CSSProperties = {
-        position: 'absolute',
-        left: element.position.x * frame.scale,
-        top: element.position.y * frame.scale,
-        width: element.size.width * frame.scale,
-        height: element.size.height * frame.scale,
-        overflow: 'hidden',
-        zIndex: layerOrder.get(element.layerId) ?? 0,
+  return [...template.layers]
+    .filter((layer) => isLayerVisible(template, layer))
+    .sort((left, right) => left.zIndex - right.zIndex)
+    .flatMap<PreviewElementLayout>((layer) => {
+      if (layer.type === 'group') {
+        return []
       }
 
-      if (element.kind === 'text') {
-        const content = element.sourceField
-          ? getTemplateFieldValue(template, element.sourceField)
-          : element.fallbackText
-        const behavior = getTextBehavior(element)
+      const baseStyle: CSSProperties = {
+        position: 'absolute',
+        left: layer.box.x * frame.scale,
+        top: layer.box.y * frame.scale,
+        width: layer.box.width * frame.scale,
+        height: layer.box.height * frame.scale,
+        overflow: 'hidden',
+        zIndex: layer.zIndex,
+        opacity: layer.opacity ?? 1,
+        pointerEvents: 'none',
+      }
+
+      if (layer.type === 'text') {
+        const textLayer = layer as TemplateTextLayerContract
+        const textStyle = {
+          fontFamily: textLayer.style?.fontFamily ?? 'IBM Plex Sans',
+          fontSize: textLayer.style?.fontSize ?? 48,
+          color: textLayer.style?.color ?? '#FFFFFF',
+          textAlign: textLayer.style?.textAlign ?? 'left',
+        }
+        const content = textLayer.fieldId
+          ? getTemplateFieldValue(template, textLayer.fieldId)
+          : textLayer.fallbackText ?? ''
+        const behavior = {
+          fitInBox: textLayer.behavior?.fitInBox ?? true,
+          fitMode: textLayer.behavior?.fitMode ?? 'scaleX',
+          minScaleX: textLayer.behavior?.minScaleX ?? 0.65,
+          whiteSpace: textLayer.behavior?.whiteSpace ?? 'nowrap',
+        }
         const scaleX = calculateTextScaleX({
           textWidth: estimateTextWidth(
             content,
-            element.style.fontSize * frame.scale,
-            element.style.fontFamily,
+            textStyle.fontSize * frame.scale,
+            textStyle.fontFamily,
           ),
-          containerWidth: element.size.width * frame.scale,
+          containerWidth: textLayer.box.width * frame.scale,
           fitInBox: behavior.fitInBox && behavior.fitMode === 'scaleX',
           minScaleX: behavior.minScaleX,
         })
 
-        return {
-          element,
-          content,
-          style: {
-            ...baseStyle,
-            color: element.style.color,
-            fontFamily: element.style.fontFamily,
-            fontSize: element.style.fontSize * frame.scale,
-            fitInBox: behavior.fitInBox,
-            fitMode: behavior.fitMode,
-            minScaleX: behavior.minScaleX,
-            scaleX,
-            textAlign: element.style.textAlign,
-            pointerEvents: 'none',
-            whiteSpace: 'nowrap',
-            transform: element.rotation !== 0 ? `rotate(${element.rotation}deg)` : undefined,
-            transformOrigin: 'top left',
-          } as TextPreviewRuntimeStyle,
-        }
-      }
-
-      if (element.kind === 'shape') {
-        const shapeRuntimeStyle = element as TemplateShapeElement & ShapeRuntimeStyle
-        const runtimeShapeType = shapeRuntimeStyle.shapeType as string | undefined
-        const borderRadius =
-          runtimeShapeType === 'ellipse'
-            ? '9999px'
-            : typeof shapeRuntimeStyle.borderRadius === 'number'
-              ? shapeRuntimeStyle.borderRadius * frame.scale
-              : shapeRuntimeStyle.borderRadius
-
-        return {
-          element,
-          style: {
-            ...baseStyle,
-            background: element.fillColor,
-            borderColor: element.borderColor,
-            borderStyle: element.borderWidth > 0 ? 'solid' : undefined,
-            borderWidth: element.borderWidth > 0 ? element.borderWidth * frame.scale : undefined,
-            borderRadius,
-            boxSizing: 'border-box',
-            pointerEvents: 'none',
-            transform: typeof shapeRuntimeStyle.rotation === 'number' && shapeRuntimeStyle.rotation !== 0
-              ? `rotate(${shapeRuntimeStyle.rotation}deg)`
-              : undefined,
-            transformOrigin: 'center center',
+        return [
+          {
+            element: textLayer,
+            content,
+            style: {
+              ...baseStyle,
+              color: textStyle.color,
+              fontFamily: textStyle.fontFamily,
+              fontSize: textStyle.fontSize * frame.scale,
+              fitInBox: behavior.fitInBox,
+              fitMode: behavior.fitMode,
+              minScaleX: behavior.minScaleX,
+              scaleX,
+              textAlign: textStyle.textAlign,
+              whiteSpace: behavior.whiteSpace,
+              transform:
+                typeof textLayer.rotation === 'number' && textLayer.rotation !== 0
+                  ? `rotate(${textLayer.rotation}deg)`
+                  : undefined,
+              transformOrigin: 'top left',
+            } as TextPreviewRuntimeStyle,
           },
-        }
+        ]
       }
 
-      if (element.kind === 'image') {
-        const imageRuntimeStyle = element as TemplateImageElement & ImageRuntimeStyle
-        const linkedAsset = element.assetId
-          ? template.assets.find((asset) => asset.id === element.assetId)
-          : undefined
-        const content = linkedAsset
-          ? linkedAsset.name
-          : element.assetId
+      if (layer.type === 'shape') {
+        const shapeLayer = layer as TemplateShapeLayerContract
+        const isLine = shapeLayer.shape === 'line'
+        const borderRadius =
+          shapeLayer.shape === 'ellipse'
+            ? '9999px'
+            : shapeLayer.style.borderRadius * frame.scale
+
+        return [
+          {
+            element: shapeLayer,
+            style: {
+              ...baseStyle,
+              background: isLine ? 'transparent' : shapeLayer.style.fill,
+              borderRadius,
+              boxSizing: 'border-box',
+              borderColor: shapeLayer.style.stroke,
+              borderStyle: shapeLayer.style.strokeWidth > 0 ? 'solid' : undefined,
+              borderWidth: isLine ? undefined : shapeLayer.style.strokeWidth * frame.scale,
+              borderTop: isLine
+                ? `${shapeLayer.style.strokeWidth * frame.scale}px solid ${shapeLayer.style.stroke}`
+                : undefined,
+              height: isLine ? Math.max(shapeLayer.style.strokeWidth * frame.scale, 1) : baseStyle.height,
+              top: isLine
+                ? layer.box.y * frame.scale + (layer.box.height * frame.scale) / 2
+                : baseStyle.top,
+            },
+          },
+        ]
+      }
+
+      if (layer.type === 'image') {
+        const imageLayer = layer as TemplateImageLayerContract
+        const imageStyle = {
+          objectFit: imageLayer.style?.objectFit ?? 'contain',
+          objectPosition: imageLayer.style?.objectPosition ?? 'center',
+        }
+        const assetPath = resolveAssetPath(template, imageLayer.assetId, imageLayer.fallbackPath)
+        const content = assetPath
+          ? undefined
+          : imageLayer.assetId
             ? 'Missing image asset'
             : 'Image placeholder'
 
-        return {
-          element,
-          content,
-          style: {
-            ...baseStyle,
-            alignItems: 'center',
-            background: '#1f2937',
-            border: '1px dashed #4b5563',
-            color: '#9ca3af',
-            display: 'flex',
-            fontSize: 12,
-            justifyContent: 'center',
-            opacity: element.opacity,
-            pointerEvents: 'none',
-            textAlign: 'center',
-            transform: typeof imageRuntimeStyle.rotation === 'number' && imageRuntimeStyle.rotation !== 0
-              ? `rotate(${imageRuntimeStyle.rotation}deg)`
-              : undefined,
-            transformOrigin: 'center center',
+        return [
+          {
+            element: imageLayer,
+            content,
+            assetPath,
+            style: {
+              ...baseStyle,
+              alignItems: 'center',
+              background: '#1f2937',
+              border: assetPath ? undefined : '1px dashed #4b5563',
+              color: '#9ca3af',
+              display: 'flex',
+              fontSize: 12,
+              justifyContent: 'center',
+              textAlign: 'center',
+            },
           },
-        }
+        ]
       }
 
-      return {
-        element,
-        style: baseStyle,
+      if (layer.type === 'background') {
+        const backgroundLayer = layer as TemplateBackgroundLayerContract
+        const backgroundStyle = {
+          fill: backgroundLayer.style?.fill ?? '#111827',
+          assetId: backgroundLayer.style?.assetId,
+          objectFit: backgroundLayer.style?.objectFit ?? 'cover',
+        }
+        const assetPath = resolveAssetPath(template, backgroundStyle.assetId)
+
+        return [
+          {
+            element: backgroundLayer,
+            assetPath,
+            style: {
+              ...baseStyle,
+              background: backgroundStyle.fill,
+            },
+          },
+        ]
       }
+
+      return []
     })
 }
 
@@ -328,12 +346,12 @@ function TextPreviewElement({
   element,
   style,
   content,
-}: PreviewElementLayout & { element: TemplateTextElement }) {
+}: PreviewElementLayout & { element: TemplateTextLayerContract }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const innerRef = useRef<HTMLSpanElement | null>(null)
   const textStyle = style as TextPreviewRuntimeStyle
   const fitInBox = textStyle.fitInBox === true && textStyle.fitMode === 'scaleX'
-  const minScaleX = typeof textStyle.minScaleX === 'number' ? textStyle.minScaleX : 0.5
+  const minScaleX = typeof textStyle.minScaleX === 'number' ? textStyle.minScaleX : 0.65
   const initialScaleX = typeof textStyle.scaleX === 'number' ? textStyle.scaleX : 1
   const [scaleX, setScaleX] = useState(initialScaleX)
 
@@ -378,14 +396,7 @@ function TextPreviewElement({
     }
 
     return undefined
-  }, [
-    content,
-    fitInBox,
-    minScaleX,
-    textStyle.fontFamily,
-    textStyle.fontSize,
-    textStyle.width,
-  ])
+  }, [content, fitInBox, minScaleX, textStyle.fontFamily, textStyle.fontSize, textStyle.width])
 
   const wrapperStyle = useMemo<CSSProperties>(
     () => ({
@@ -407,9 +418,9 @@ function TextPreviewElement({
       fontSize: textStyle.fontSize,
       transform: fitInBox ? `scaleX(${scaleX})` : undefined,
       transformOrigin: 'left center',
-      whiteSpace: 'nowrap',
+      whiteSpace: textStyle.whiteSpace ?? 'nowrap',
     }),
-    [fitInBox, scaleX, textStyle.color, textStyle.fontFamily, textStyle.fontSize],
+    [fitInBox, scaleX, textStyle.color, textStyle.fontFamily, textStyle.fontSize, textStyle.whiteSpace],
   )
 
   return (
@@ -428,47 +439,97 @@ function TextPreviewElement({
   )
 }
 
-function renderShapeElement(element: TemplateShapeElement, style: CSSProperties) {
+function renderShapeElement(element: TemplateShapeLayerContract, style: CSSProperties) {
   return (
     <div
       key={element.id}
       data-kind='shape'
+      data-shape={element.shape}
       style={style}
     />
   )
 }
 
-function renderImageElement(layout: PreviewElementLayout & { element: TemplateImageElement }) {
-  const { element, style, content } = layout
+function renderImageElement(layout: PreviewElementLayout & { element: TemplateImageLayerContract }) {
+  const { element, style, content, assetPath } = layout
+
+  if (assetPath) {
+    return (
+        <img
+          key={element.id}
+          alt=''
+          aria-hidden='true'
+          data-kind='image'
+          data-object-fit={element.style?.objectFit ?? 'contain'}
+          src={assetPath}
+          style={{
+            ...style,
+            objectFit: element.style?.objectFit ?? 'contain',
+            objectPosition: element.style?.objectPosition ?? 'center',
+          }}
+        />
+      )
+  }
+
   return (
     <div
       key={element.id}
       data-kind='image'
-      data-object-fit={element.objectFit}
-      data-placeholder={element.assetId ? undefined : 'true'}
-      style={{
-        ...style,
-        objectFit: element.objectFit,
-      }}
+      data-object-fit={element.style?.objectFit ?? 'contain'}
+      data-placeholder='true'
+      style={style}
     >
       {content}
     </div>
   )
 }
 
-function renderElement(layout: PreviewElementLayout, template: TemplateContract) {
+function renderBackgroundLayer(
+  layout: PreviewElementLayout & { element: TemplateBackgroundLayerContract },
+) {
+  const { element, style, assetPath } = layout
+
+  return (
+    <div
+      key={element.id}
+      data-kind='background'
+      style={style}
+    >
+      {assetPath ? (
+        <img
+          alt=''
+          aria-hidden='true'
+          src={assetPath}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: element.style?.objectFit ?? 'cover',
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function renderElement(layout: PreviewElementLayout) {
   const { element, style } = layout
 
-  if (element.kind === 'text') {
-    return <TextPreviewElement key={element.id} {...(layout as PreviewElementLayout & { element: TemplateTextElement })} />
+  if (element.type === 'text') {
+    return <TextPreviewElement key={element.id} {...(layout as PreviewElementLayout & { element: TemplateTextLayerContract })} />
   }
 
-  if (element.kind === 'shape') {
-    return renderShapeElement(element, style)
+  if (element.type === 'shape') {
+    return renderShapeElement(element as TemplateShapeLayerContract, style)
   }
 
-  if (element.kind === 'image') {
-    return renderImageElement(layout as PreviewElementLayout & { element: TemplateImageElement })
+  if (element.type === 'image') {
+    return renderImageElement(layout as PreviewElementLayout & { element: TemplateImageLayerContract })
+  }
+
+  if (element.type === 'background') {
+    return renderBackgroundLayer(layout as PreviewElementLayout & { element: TemplateBackgroundLayerContract })
   }
 
   return null
@@ -570,7 +631,7 @@ export function PreviewCanvas({ template, width, height, className }: PreviewCan
             }}
           />
         ) : null}
-        {layout.map((item) => renderElement(item, template))}
+        {layout.map((item) => renderElement(item))}
         {template.preview.showLayerBounds ? renderLayerBounds(layout) : null}
         {template.preview.showSafeArea && safeArea.enabled
           ? renderSafeArea(frame, safeArea.marginX, safeArea.marginY)

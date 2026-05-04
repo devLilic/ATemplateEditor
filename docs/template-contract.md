@@ -64,22 +64,102 @@ Current defaults:
 
 `layers` are the visual contract for composition structure and stacking.
 
-Each layer contains:
+Each layer contains the common fields:
 
 - `id`
 - `name`
 - `type`
 - `visible`
-- `visibility`
 - `locked`
 - `zIndex`
+- `box`
 - `opacity`
+
+`box` replaces separate position/size fields and contains:
+
+- `x`
+- `y`
+- `width`
+- `height`
 
 Layer intent:
 
 - `layers` are contract-level visual groups.
 - They describe ordering and visibility rules for renderable content.
 - They are not UI panels, editor tabs, or runtime timers.
+
+Supported final layer types:
+
+- `text`
+- `image`
+- `shape`
+- `background`
+- `group`
+
+Layer behavior:
+
+- `zIndex` controls stacking order.
+- `visible` controls whether the layer should render.
+- `locked` is editor authoring metadata.
+- `group` is organizational and uses `children: string[]` to reference child layer ids.
+
+### Text Layer
+
+Text layers use:
+
+- `fieldId`
+- `fallbackText`
+- `style.fontFamily`
+- `style.fontSize`
+- `style.color`
+- `style.textAlign`
+- `behavior.fitInBox`
+- `behavior.fitMode`
+- `behavior.minScaleX`
+- `behavior.whiteSpace`
+
+### Image Layer
+
+Image layers use:
+
+- `assetId`
+- `fallbackPath`
+- `style.objectFit`
+- `style.objectPosition`
+
+### Shape Layer
+
+Shape layers use:
+
+- `shape`
+- `style.fill`
+- `style.stroke`
+- `style.strokeWidth`
+- `style.borderRadius`
+
+Supported `shape` values:
+
+- `rectangle`
+- `ellipse`
+- `line`
+
+### Background Layer
+
+Background layers use:
+
+- `style.fill`
+- `style.assetId`
+- `style.objectFit`
+
+Background layers typically default to a full-canvas `box`.
+
+### Group Layer
+
+Group layers use:
+
+- `children`
+
+`children` is a string array of referenced child layer ids.
 
 ## Elements
 
@@ -284,12 +364,29 @@ The default template currently provides:
       "name": "Main Layer",
       "type": "text",
       "visible": true,
-      "visibility": {
-        "mode": "always"
-      },
       "locked": false,
       "zIndex": 0,
-      "opacity": 1
+      "box": {
+        "x": 160,
+        "y": 820,
+        "width": 1400,
+        "height": 120
+      },
+      "opacity": 1,
+      "fieldId": "title",
+      "fallbackText": "Breaking News",
+      "style": {
+        "fontFamily": "IBM Plex Sans",
+        "fontSize": 64,
+        "color": "#FFFFFF",
+        "textAlign": "left"
+      },
+      "behavior": {
+        "fitInBox": true,
+        "fitMode": "scaleX",
+        "minScaleX": 0.65,
+        "whiteSpace": "nowrap"
+      }
     }
   ],
   "preview": {
@@ -337,6 +434,6 @@ The default template currently provides:
 
 ### Render / Preview Engines
 
-- Read `canvas`, `layers`, `elements`, `assets`, and `preview`.
+- Read `canvas`, `layers`, `assets`, and `preview`.
 - Treat `layers` as visual contract structure.
 - Resolve image assets through `assetId -> assets[].path`.

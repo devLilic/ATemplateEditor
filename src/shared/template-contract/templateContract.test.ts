@@ -9,6 +9,7 @@ import {
   createTextElement,
   updateTemplateMetadata,
 } from './templateContract'
+import * as templateContractModule from './templateContract'
 
 describe('template contract base', () => {
   it('creates an empty template with the final top-level contract fields only', () => {
@@ -243,13 +244,15 @@ describe('template contract base', () => {
     expect(layer.name).toBe('Layer')
     expect(layer.type).toBe('text')
     expect(layer.visible).toBe(true)
-    expect(layer.visibility).toEqual({
-      mode: 'always',
-      fieldId: undefined,
-    })
     expect(layer.locked).toBe(false)
     expect(layer.zIndex).toBe(0)
     expect(layer.opacity).toBe(1)
+    expect(layer.box).toEqual({
+      x: 0,
+      y: 0,
+      width: 1920,
+      height: 1080,
+    })
   })
 
   it('allows a new template to receive a created layer manually', () => {
@@ -258,5 +261,188 @@ describe('template contract base', () => {
     const updatedTemplate = { ...template, layers: [layer] }
 
     expect(updatedTemplate.layers[0].name).toBe('Main')
+  })
+})
+
+describe('template layer contract final model', () => {
+  function getLayerFactories() {
+    const moduleRecord = templateContractModule as Record<string, unknown>
+
+    return {
+      createTextLayer: moduleRecord.createTextLayer as
+        | ((input?: Record<string, unknown>) => Record<string, unknown>)
+        | undefined,
+      createImageLayer: moduleRecord.createImageLayer as
+        | ((input?: Record<string, unknown>) => Record<string, unknown>)
+        | undefined,
+      createShapeLayer: moduleRecord.createShapeLayer as
+        | ((input?: Record<string, unknown>) => Record<string, unknown>)
+        | undefined,
+      createBackgroundLayer: moduleRecord.createBackgroundLayer as
+        | ((input?: Record<string, unknown>) => Record<string, unknown>)
+        | undefined,
+      createGroupLayer: moduleRecord.createGroupLayer as
+        | ((input?: Record<string, unknown>) => Record<string, unknown>)
+        | undefined,
+    }
+  }
+
+  function expectCommonLayerFields(layer: Record<string, unknown>, type: string) {
+    expect(typeof layer.id).toBe('string')
+    expect((layer.id as string).trim().length).toBeGreaterThan(0)
+    expect(typeof layer.name).toBe('string')
+    expect(layer.type).toBe(type)
+    expect(typeof layer.visible).toBe('boolean')
+    expect(typeof layer.locked).toBe('boolean')
+    expect(typeof layer.zIndex).toBe('number')
+    expect(layer).toHaveProperty('box')
+    expect(layer.box).toEqual(
+      expect.objectContaining({
+        x: expect.any(Number),
+        y: expect.any(Number),
+        width: expect.any(Number),
+        height: expect.any(Number),
+      }),
+    )
+
+    if ('opacity' in layer && layer.opacity !== undefined) {
+      expect(typeof layer.opacity).toBe('number')
+    }
+  }
+
+  it('exposes the final layer factory exports', () => {
+    const factories = getLayerFactories()
+
+    expect(typeof factories.createTextLayer).toBe('function')
+    expect(typeof factories.createImageLayer).toBe('function')
+    expect(typeof factories.createShapeLayer).toBe('function')
+    expect(typeof factories.createBackgroundLayer).toBe('function')
+    expect(typeof factories.createGroupLayer).toBe('function')
+  })
+
+  it('supports text, image, shape, background, and group as the allowed layer types', () => {
+    const factories = getLayerFactories()
+    const textLayer = factories.createTextLayer?.()
+    const imageLayer = factories.createImageLayer?.()
+    const shapeLayer = factories.createShapeLayer?.()
+    const backgroundLayer = factories.createBackgroundLayer?.()
+    const groupLayer = factories.createGroupLayer?.()
+
+    expect(textLayer?.type).toBe('text')
+    expect(imageLayer?.type).toBe('image')
+    expect(shapeLayer?.type).toBe('shape')
+    expect(backgroundLayer?.type).toBe('background')
+    expect(groupLayer?.type).toBe('group')
+  })
+
+  it('creates a text layer with the final common contract fields', () => {
+    const { createTextLayer } = getLayerFactories()
+    const layer = createTextLayer?.({ name: 'Headline' })
+
+    expect(layer).toBeDefined()
+    expectCommonLayerFields(layer as Record<string, unknown>, 'text')
+  })
+
+  it('creates a text layer with optional fieldId, fallbackText, style, and behavior', () => {
+    const { createTextLayer } = getLayerFactories()
+    const layer = createTextLayer?.({
+      name: 'Headline',
+      fieldId: 'title',
+      fallbackText: 'Sample title',
+    })
+
+    expect(layer).toEqual(
+      expect.objectContaining({
+        type: 'text',
+        fieldId: expect.anything(),
+        fallbackText: expect.anything(),
+        style: expect.any(Object),
+        behavior: expect.any(Object),
+      }),
+    )
+  })
+
+  it('creates an image layer with optional assetId, fallbackPath, and style.objectFit', () => {
+    const { createImageLayer } = getLayerFactories()
+    const layer = createImageLayer?.({
+      name: 'Logo',
+      assetId: 'asset-logo',
+      fallbackPath: 'assets/logo.png',
+    })
+
+    expect(layer).toBeDefined()
+    expectCommonLayerFields(layer as Record<string, unknown>, 'image')
+    expect(layer).toEqual(
+      expect.objectContaining({
+        assetId: expect.anything(),
+        fallbackPath: expect.anything(),
+        style: expect.objectContaining({
+          objectFit: expect.any(String),
+        }),
+      }),
+    )
+  })
+
+  it('creates a shape layer with the final shape options and style fields', () => {
+    const { createShapeLayer } = getLayerFactories()
+    const layer = createShapeLayer?.({
+      name: 'Lower third box',
+      shape: 'rectangle',
+    })
+
+    expect(layer).toBeDefined()
+    expectCommonLayerFields(layer as Record<string, unknown>, 'shape')
+    expect(layer).toEqual(
+      expect.objectContaining({
+        shape: expect.stringMatching(/^(rectangle|ellipse|line)$/),
+        style: expect.objectContaining({
+          fill: expect.any(String),
+          stroke: expect.any(String),
+          strokeWidth: expect.any(Number),
+          borderRadius: expect.any(Number),
+        }),
+      }),
+    )
+  })
+
+  it('creates a background layer with optional fill, assetId, and objectFit in style', () => {
+    const { createBackgroundLayer } = getLayerFactories()
+    const layer = createBackgroundLayer?.({
+      name: 'Background',
+    })
+
+    expect(layer).toBeDefined()
+    expectCommonLayerFields(layer as Record<string, unknown>, 'background')
+    expect(layer).toEqual(
+      expect.objectContaining({
+        style: expect.any(Object),
+      }),
+    )
+
+    const style = (layer as Record<string, unknown>).style as Record<string, unknown>
+    expect(style).toBeDefined()
+    expect(['string', 'undefined']).toContain(typeof style.fill)
+    expect(['string', 'undefined']).toContain(typeof style.assetId)
+    expect(['string', 'undefined']).toContain(typeof style.objectFit)
+  })
+
+  it('creates a group layer with children string ids', () => {
+    const { createGroupLayer } = getLayerFactories()
+    const layer = createGroupLayer?.({
+      name: 'Group',
+      children: ['layer-title', 'layer-logo'],
+    })
+
+    expect(layer).toBeDefined()
+    expectCommonLayerFields(layer as Record<string, unknown>, 'group')
+    expect(layer).toEqual(
+      expect.objectContaining({
+        children: ['layer-title', 'layer-logo'],
+      }),
+    )
+    expect(Array.isArray((layer as Record<string, unknown>).children)).toBe(true)
+    expect(((layer as Record<string, unknown>).children as unknown[]).every((child) => typeof child === 'string')).toBe(
+      true,
+    )
   })
 })

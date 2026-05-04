@@ -1,5 +1,13 @@
 import { useState, type DragEvent } from 'react'
-import type { TemplateContract, TemplateLayer } from '@/shared/template-contract/templateContract'
+import {
+  createBackgroundLayer,
+  createGroupLayer,
+  createImageLayer,
+  createShapeLayer,
+  createTextLayer,
+  type TemplateContract,
+  type TemplateLayer,
+} from '@/shared/template-contract/templateContract'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { createTemplateEditorState, removeLayer } from '@/features/template-state'
@@ -19,6 +27,14 @@ function sortLayersTopToBottom(layers: TemplateLayer[]) {
   return [...layers].sort((left, right) => right.zIndex - left.zIndex)
 }
 
+function getNextLayerZIndex(template: TemplateContract) {
+  if (template.layers.length === 0) {
+    return 0
+  }
+
+  return Math.max(...template.layers.map((layer) => layer.zIndex)) + 1
+}
+
 function getLayerTypeBadgeVariant(layerType: TemplateLayer['type']) {
   if (layerType === 'background') {
     return 'muted'
@@ -26,6 +42,10 @@ function getLayerTypeBadgeVariant(layerType: TemplateLayer['type']) {
 
   if (layerType === 'image') {
     return 'active'
+  }
+
+  if (layerType === 'group') {
+    return 'neutral'
   }
 
   return 'selected'
@@ -50,6 +70,13 @@ function updateLayer(
   }
 }
 
+function addLayer(template: TemplateContract, layer: TemplateLayer): TemplateContract {
+  return {
+    ...template,
+    layers: [...template.layers, layer],
+  }
+}
+
 export function LayersPanel({
   template,
   selectedLayerId,
@@ -60,6 +87,7 @@ export function LayersPanel({
 }: LayersPanelProps) {
   const [draggedLayerId, setDraggedLayerId] = useState<string>()
   const orderedLayers = sortLayersTopToBottom(template.layers)
+  const nextLayerZIndex = getNextLayerZIndex(template)
 
   const moveLayer = (targetLayerId: string) => {
     if (!draggedLayerId || draggedLayerId === targetLayerId) {
@@ -94,6 +122,85 @@ export function LayersPanel({
 
   return (
     <div className='flex flex-col gap-2' role='listbox' aria-label='Layers'>
+      <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
+        <Button
+          onClick={() => {
+            onTemplateChange(
+              addLayer(
+                template,
+                createTextLayer({
+                  zIndex: nextLayerZIndex,
+                }),
+              ),
+            )
+          }}
+          variant='accent'
+        >
+          Add text layer
+        </Button>
+        <Button
+          onClick={() => {
+            onTemplateChange(
+              addLayer(
+                template,
+                createImageLayer({
+                  zIndex: nextLayerZIndex,
+                }),
+              ),
+            )
+          }}
+          variant='neutral'
+        >
+          Add image layer
+        </Button>
+        <Button
+          onClick={() => {
+            onTemplateChange(
+              addLayer(
+                template,
+                createShapeLayer({
+                  zIndex: nextLayerZIndex,
+                }),
+              ),
+            )
+          }}
+          variant='neutral'
+        >
+          Add shape layer
+        </Button>
+        <Button
+          onClick={() => {
+            onTemplateChange(
+              addLayer(
+                template,
+                createBackgroundLayer({
+                  zIndex: nextLayerZIndex,
+                }),
+              ),
+            )
+          }}
+          variant='neutral'
+        >
+          Add background layer
+        </Button>
+        <Button
+          className='sm:col-span-2'
+          onClick={() => {
+            onTemplateChange(
+              addLayer(
+                template,
+                createGroupLayer({
+                  zIndex: nextLayerZIndex,
+                }),
+              ),
+            )
+          }}
+          variant='ghost'
+        >
+          Add group layer
+        </Button>
+      </div>
+
       {orderedLayers.map((layer) => {
         const isSelected = layer.id === selectedLayerId
         const canDeleteLayer = template.layers.length > 1

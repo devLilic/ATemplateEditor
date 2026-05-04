@@ -6,7 +6,12 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { act } from 'react-dom/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PreviewCanvas } from '@/shared/preview16x9'
-import { createEmptyTemplate, createLayer, createTextElement } from '@/shared/template-contract/templateContract'
+import {
+  createEmptyTemplate,
+  createLayer,
+  createTextElement,
+  createTextLayer,
+} from '@/shared/template-contract/templateContract'
 
 async function renderLayersPanel() {
   const module = await import('./LayersPanel')
@@ -96,8 +101,16 @@ async function renderSingleLayerPanel() {
 }
 
 function createTemplateWithTwoLayers() {
-  const bottomLayer = createLayer({ name: 'Background', type: 'background', zIndex: 0 })
-  const topLayer = createLayer({ name: 'Headline', type: 'text', zIndex: 1 })
+  const bottomLayer = createTextLayer({
+    name: 'Background',
+    zIndex: 0,
+    fallbackText: 'Background text',
+  })
+  const topLayer = createTextLayer({
+    name: 'Headline',
+    zIndex: 1,
+    fallbackText: 'Headline text',
+  })
   const backgroundText = {
     ...createTextElement({
       layerId: bottomLayer.id,
@@ -151,6 +164,11 @@ describe('LayersPanel', () => {
     const view = await renderLayersPanel()
 
     try {
+      expect(view.container.textContent).toContain('Add text layer')
+      expect(view.container.textContent).toContain('Add image layer')
+      expect(view.container.textContent).toContain('Add shape layer')
+      expect(view.container.textContent).toContain('Add background layer')
+      expect(view.container.textContent).toContain('Add group layer')
       expect(view.container.textContent).toContain('Background')
       expect(view.container.textContent).toContain('Headline')
       expect(view.container.textContent).toContain('background')
@@ -159,6 +177,126 @@ describe('LayersPanel', () => {
       expect(view.container.textContent).toContain('1')
       expect(view.container.querySelectorAll('input[aria-label^="Visible "]')).toHaveLength(2)
       expect(view.container.querySelectorAll('input[aria-label^="Locked "]')).toHaveLength(2)
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('adds a text layer', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const button = Array.from(view.container.querySelectorAll('button')).find(
+        (element) => element.textContent?.trim() === 'Add text layer',
+      ) as HTMLButtonElement | undefined
+
+      expect(button).toBeDefined()
+
+      await act(async () => {
+        button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(view.onTemplateChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layers: expect.arrayContaining([expect.objectContaining({ type: 'text' })]),
+        }),
+      )
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('adds an image layer', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const button = Array.from(view.container.querySelectorAll('button')).find(
+        (element) => element.textContent?.trim() === 'Add image layer',
+      ) as HTMLButtonElement | undefined
+
+      expect(button).toBeDefined()
+
+      await act(async () => {
+        button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(view.onTemplateChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layers: expect.arrayContaining([expect.objectContaining({ type: 'image' })]),
+        }),
+      )
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('adds a shape layer', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const button = Array.from(view.container.querySelectorAll('button')).find(
+        (element) => element.textContent?.trim() === 'Add shape layer',
+      ) as HTMLButtonElement | undefined
+
+      expect(button).toBeDefined()
+
+      await act(async () => {
+        button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(view.onTemplateChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layers: expect.arrayContaining([expect.objectContaining({ type: 'shape' })]),
+        }),
+      )
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('adds a background layer', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const button = Array.from(view.container.querySelectorAll('button')).find(
+        (element) => element.textContent?.trim() === 'Add background layer',
+      ) as HTMLButtonElement | undefined
+
+      expect(button).toBeDefined()
+
+      await act(async () => {
+        button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(view.onTemplateChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layers: expect.arrayContaining([expect.objectContaining({ type: 'background' })]),
+        }),
+      )
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('adds a group layer', async () => {
+    const view = await renderLayersPanel()
+
+    try {
+      const button = Array.from(view.container.querySelectorAll('button')).find(
+        (element) => element.textContent?.trim() === 'Add group layer',
+      ) as HTMLButtonElement | undefined
+
+      expect(button).toBeDefined()
+
+      await act(async () => {
+        button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
+      expect(view.onTemplateChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layers: expect.arrayContaining([expect.objectContaining({ type: 'group' })]),
+        }),
+      )
     } finally {
       await view.cleanup()
     }

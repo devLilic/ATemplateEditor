@@ -1,8 +1,8 @@
 import {
   createEmptyTemplate,
   createField,
-  createLayer,
   createTextElement,
+  createTextLayer,
   type TemplateEditableField,
   type TemplateContract,
 } from './templateContract'
@@ -51,17 +51,39 @@ export function createDefaultTemplate(input: CreateDefaultTemplateInput = {}): T
   const template = createEmptyTemplate({
     name: input.name ?? 'Default template',
   })
-  const mainLayer = createLayer({
+  const mainLayer = createTextLayer({
     name: 'Main Layer',
-    type: 'text',
     zIndex: 0,
+    fieldId: 'title',
+    fallbackText: titleFallback,
+    box: { x: 160, y: 820, width: 1400, height: 120 },
+    style: {
+      fontSize: 64,
+    },
   })
-  const titleElement = createTextElement({
+  const baseTitleElement = createTextElement({
     layerId: mainLayer.id,
     name: 'Title',
-    position: { x: 160, y: 820 },
-    size: { width: 1400, height: 120 },
+    position: { x: mainLayer.box.x, y: mainLayer.box.y },
+    size: { width: mainLayer.box.width, height: mainLayer.box.height },
   })
+  const titleElement = {
+    ...baseTitleElement,
+    sourceField: 'title',
+    fallbackText: titleFallback,
+    style: {
+      ...baseTitleElement.style,
+      fontFamily: 'IBM Plex Sans',
+      fontSize: 64,
+      color: '#FFFFFF',
+      textAlign: 'left' as const,
+    },
+    behavior: {
+      fitInBox: true,
+      fitMode: 'scaleX' as const,
+      minScaleX: 0.65,
+    },
+  }
   const titleField = createField({
     id: 'title',
     label: 'Title',
@@ -84,17 +106,7 @@ export function createDefaultTemplate(input: CreateDefaultTemplateInput = {}): T
     ...template,
     layers: [mainLayer],
     fields: [titleField],
-    elements: [
-      {
-        ...titleElement,
-        sourceField: 'title',
-        fallbackText: titleFallback,
-        style: {
-          ...titleElement.style,
-          fontSize: 64,
-        },
-      },
-    ],
+    elements: [titleElement],
     preview: {
       ...template.preview,
       sampleData: {

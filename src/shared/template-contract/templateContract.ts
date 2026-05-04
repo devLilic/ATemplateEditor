@@ -24,7 +24,25 @@ export interface TemplateOutputContract {
   liveboard?: TemplateOutputLiveboardContract
 }
 
-export type TemplateLayerType = 'text' | 'background' | 'image'
+export type TemplateLayerType = 'text' | 'image' | 'shape' | 'background' | 'group'
+
+export interface LayerBoxContract {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface BaseTemplateLayerContract {
+  id: string
+  name: string
+  type: TemplateLayerType
+  visible: boolean
+  locked: boolean
+  zIndex: number
+  box: LayerBoxContract
+  opacity?: number
+}
 
 export type TemplateLayerVisibilityMode = 'always' | 'whenFieldHasValue'
 
@@ -33,16 +51,76 @@ export interface TemplateLayerVisibility {
   fieldId?: string
 }
 
-export interface TemplateLayerContract {
+export interface TemplateLayerContract extends BaseTemplateLayerContract {
   [key: string]: unknown
-  id: string
-  name: string
-  type: TemplateLayerType
-  visible: boolean
+  /**
+   * @deprecated Legacy layer visibility retained temporarily while the UI is realigned.
+   */
   visibility: TemplateLayerVisibility
-  locked: boolean
-  zIndex: number
-  opacity: number
+}
+
+export interface TemplateTextLayerStyleContract {
+  fontFamily: string
+  fontSize: number
+  color: string
+  textAlign: 'left' | 'center' | 'right'
+}
+
+export interface TemplateTextLayerBehaviorContract {
+  fitInBox: boolean
+  fitMode: 'scaleX'
+  minScaleX: number
+  whiteSpace: 'nowrap' | 'normal'
+}
+
+export interface TemplateTextLayerContract extends TemplateLayerContract {
+  type: 'text'
+  fieldId?: string
+  fallbackText?: string
+  style: TemplateTextLayerStyleContract
+  behavior: TemplateTextLayerBehaviorContract
+  rotation?: number
+}
+
+export interface TemplateImageLayerStyleContract {
+  objectFit: 'contain' | 'cover' | 'fill'
+  objectPosition: string
+}
+
+export interface TemplateImageLayerContract extends TemplateLayerContract {
+  type: 'image'
+  assetId?: string
+  fallbackPath?: string
+  style: TemplateImageLayerStyleContract
+}
+
+export interface TemplateShapeLayerStyleContract {
+  fill: string
+  stroke: string
+  strokeWidth: number
+  borderRadius: number
+}
+
+export interface TemplateShapeLayerContract extends TemplateLayerContract {
+  type: 'shape'
+  shape: 'rectangle' | 'ellipse' | 'line'
+  style: TemplateShapeLayerStyleContract
+}
+
+export interface TemplateBackgroundLayerStyleContract {
+  fill?: string
+  assetId?: string
+  objectFit?: 'contain' | 'cover' | 'fill'
+}
+
+export interface TemplateBackgroundLayerContract extends TemplateLayerContract {
+  type: 'background'
+  style: TemplateBackgroundLayerStyleContract
+}
+
+export interface TemplateGroupLayerContract extends TemplateLayerContract {
+  type: 'group'
+  children: string[]
 }
 
 export type TemplateLayer = TemplateLayerContract
@@ -318,6 +396,37 @@ interface CreateLayerInput {
   name?: string
   type?: TemplateLayerType
   zIndex?: number
+  box?: LayerBoxContract
+  visible?: boolean
+  locked?: boolean
+  opacity?: number
+}
+
+interface CreateTextLayerInput extends CreateLayerInput {
+  fieldId?: string
+  fallbackText?: string
+  style?: Partial<TemplateTextLayerStyleContract>
+  behavior?: Partial<TemplateTextLayerBehaviorContract>
+  rotation?: number
+}
+
+interface CreateImageLayerInput extends CreateLayerInput {
+  assetId?: string
+  fallbackPath?: string
+  style?: Partial<TemplateImageLayerStyleContract>
+}
+
+interface CreateShapeLayerInput extends CreateLayerInput {
+  shape?: TemplateShapeLayerContract['shape']
+  style?: Partial<TemplateShapeLayerStyleContract>
+}
+
+interface CreateBackgroundLayerInput extends CreateLayerInput {
+  style?: Partial<TemplateBackgroundLayerStyleContract>
+}
+
+interface CreateGroupLayerInput extends CreateLayerInput {
+  children?: string[]
 }
 
 interface CreateTemplateElementInput {
@@ -412,19 +521,143 @@ function createElementBase(
   }
 }
 
-export function createLayer(input: CreateLayerInput = {}): TemplateLayer {
+export function createLayer(input: CreateLayerInput = {}): TemplateLayerContract {
   return {
     id: createLayerId(),
     name: input.name ?? 'Layer',
     type: input.type ?? 'text',
-    visible: true,
+    visible: input.visible ?? true,
     visibility: {
       mode: 'always',
       fieldId: undefined,
     },
-    locked: false,
+    locked: input.locked ?? false,
     zIndex: input.zIndex ?? 0,
-    opacity: 1,
+    box: input.box ?? {
+      x: 0,
+      y: 0,
+      width: 1920,
+      height: 1080,
+    },
+    opacity: input.opacity ?? 1,
+  }
+}
+
+export function createTextLayer(input: CreateTextLayerInput = {}): TemplateTextLayerContract {
+  return {
+    ...createLayer({
+      ...input,
+      name: input.name ?? 'Text',
+      type: 'text',
+      box: input.box ?? {
+        x: 0,
+        y: 0,
+        width: 600,
+        height: 80,
+      },
+    }),
+    type: 'text',
+    fieldId: input.fieldId,
+    fallbackText: input.fallbackText ?? '',
+    style: {
+      fontFamily: 'IBM Plex Sans',
+      fontSize: 48,
+      color: '#FFFFFF',
+      textAlign: 'left',
+      ...input.style,
+    },
+    behavior: {
+      fitInBox: true,
+      fitMode: 'scaleX',
+      minScaleX: 0.65,
+      whiteSpace: 'nowrap',
+      ...input.behavior,
+    },
+    rotation: input.rotation,
+  }
+}
+
+export function createImageLayer(input: CreateImageLayerInput = {}): TemplateImageLayerContract {
+  return {
+    ...createLayer({
+      ...input,
+      name: input.name ?? 'Image',
+      type: 'image',
+      box: input.box ?? {
+        x: 0,
+        y: 0,
+        width: 400,
+        height: 300,
+      },
+    }),
+    type: 'image',
+    assetId: input.assetId,
+    fallbackPath: input.fallbackPath,
+    style: {
+      objectFit: 'contain',
+      objectPosition: 'center',
+      ...input.style,
+    },
+  }
+}
+
+export function createShapeLayer(input: CreateShapeLayerInput = {}): TemplateShapeLayerContract {
+  return {
+    ...createLayer({
+      ...input,
+      name: input.name ?? 'Shape',
+      type: 'shape',
+      box: input.box ?? {
+        x: 0,
+        y: 0,
+        width: 400,
+        height: 120,
+      },
+    }),
+    type: 'shape',
+    shape: input.shape ?? 'rectangle',
+    style: {
+      fill: '#1F2937',
+      stroke: 'transparent',
+      strokeWidth: 0,
+      borderRadius: 0,
+      ...input.style,
+    },
+  }
+}
+
+export function createBackgroundLayer(
+  input: CreateBackgroundLayerInput = {},
+): TemplateBackgroundLayerContract {
+  return {
+    ...createLayer({
+      ...input,
+      name: input.name ?? 'Background',
+      type: 'background',
+      box: input.box ?? {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+      },
+    }),
+    type: 'background',
+    style: {
+      fill: '#111827',
+      ...input.style,
+    },
+  }
+}
+
+export function createGroupLayer(input: CreateGroupLayerInput = {}): TemplateGroupLayerContract {
+  return {
+    ...createLayer({
+      ...input,
+      name: input.name ?? 'Group',
+      type: 'group',
+    }),
+    type: 'group',
+    children: input.children ?? [],
   }
 }
 
