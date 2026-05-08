@@ -1,11 +1,18 @@
-export interface TemplateValidationError {
+export interface TemplateValidationIssue {
   path: string
   message: string
 }
 
+export type TemplateValidationError = TemplateValidationIssue
+
 export interface TemplateValidationResult {
   valid: boolean
-  errors: TemplateValidationError[]
+  errors: TemplateValidationIssue[]
+  warnings: TemplateValidationIssue[]
+}
+
+export interface ValidateTemplateOptions {
+  mode?: 'draft' | 'finalExport'
 }
 
 type TemplateValidationObject = Record<string, unknown>
@@ -22,50 +29,50 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function addError(errors: TemplateValidationError[], path: string, message: string) {
-  errors.push({
-    path,
-    message,
-  })
+function addIssue(issues: TemplateValidationIssue[], path: string, message: string) {
+  issues.push({ path, message })
 }
 
-function validateLayer(layer: unknown, index: number, errors: TemplateValidationError[]) {
-  const path = `layers[${index}]`
+function addError(errors: TemplateValidationIssue[], path: string, message: string) {
+  addIssue(errors, path, message)
+}
 
-  if (!isObject(layer)) {
-    addError(errors, path, 'Layer must be an object.')
+function addWarning(warnings: TemplateValidationIssue[], path: string, message: string) {
+  addIssue(warnings, path, message)
+}
+
+function createValidationResult(
+  errors: TemplateValidationIssue[],
+  warnings: TemplateValidationIssue[],
+): TemplateValidationResult {
+  const result = {
+    valid: errors.length === 0,
+    errors,
+  } as TemplateValidationResult
+
+  Object.defineProperty(result, 'warnings', {
+    configurable: true,
+    enumerable: false,
+    value: warnings,
+    writable: true,
+  })
+
+  return result
+}
+
+function addDuplicateIdError(
+  ids: Set<string>,
+  id: string,
+  path: string,
+  label: string,
+  errors: TemplateValidationIssue[],
+) {
+  if (ids.has(id)) {
+    addError(errors, path, `${label} id must be unique.`)
     return
   }
 
-  if (!isNonEmptyString(layer.id)) {
-    addError(errors, `${path}.id`, 'Layer id must be a non-empty string.')
-  }
-
-  if (!isNonEmptyString(layer.name)) {
-    addError(errors, `${path}.name`, 'Layer name must be a non-empty string.')
-  }
-
-  if (!isLayerType(layer.type)) {
-    addError(errors, `${path}.type`, 'Layer type must be text, background, or image.')
-  }
-
-  if (typeof layer.visible !== 'boolean') {
-    addError(errors, `${path}.visible`, 'Layer visible must be a boolean.')
-  }
-
-  if (typeof layer.locked !== 'boolean') {
-    addError(errors, `${path}.locked`, 'Layer locked must be a boolean.')
-  }
-
-  if (!isFiniteNumber(layer.zIndex)) {
-    addError(errors, `${path}.zIndex`, 'Layer zIndex must be a finite number.')
-  }
-
-  const opacity = layer.opacity
-
-  if (!isFiniteNumber(opacity) || opacity < 0 || opacity > 1) {
-    addError(errors, `${path}.opacity`, 'Layer opacity must be a finite number between 0 and 1.')
-  }
+  ids.add(id)
 }
 
 function isTemplateElementKind(value: unknown) {
@@ -73,7 +80,7 @@ function isTemplateElementKind(value: unknown) {
 }
 
 function isLayerType(value: unknown) {
-  return value === 'text' || value === 'background' || value === 'image'
+  return value === 'text' || value === 'image' || value === 'shape' || value === 'background' || value === 'group'
 }
 
 function isTextAlign(value: unknown) {
@@ -89,7 +96,7 @@ function isImageObjectFit(value: unknown) {
 }
 
 function isShapeType(value: unknown) {
-  return value === 'rectangle' || value === 'ellipse'
+  return value === 'rectangle' || value === 'ellipse' || value === 'line'
 }
 
 function isEditableFieldType(value: unknown) {
@@ -104,10 +111,83 @@ function isEditableDefaultValue(value: unknown) {
   return typeof value === 'string'
 }
 
+function validateBox(
+  box: unknown,
+  path: string,
+  errors: TemplateValidationIssue[],
+) {
+  if (!isObject(box)) {
+    addError(errors, path, 'Layer box must be an object.')
+    return
+  }
+
+  if (!isFiniteNumber(box.x)) {
+    addError(errors, `${path}.x`, 'Layer box.x must be a finite number.')
+  }
+
+  if (!isFiniteNumber(box.y)) {
+    addError(errors, `${path}.y`, 'Layer box.y must be a finite number.')
+  }
+
+  if (!isFiniteNumber(box.width) || box.width <= 0) {
+    addError(errors, `${path}.width`, 'Layer box.width must be greater than 0.')
+  }
+
+  if (!isFiniteNumber(box.height) || box.height <= 0) {
+    addError(errors, `${path}.height`, 'Layer box.height must be greater than 0.')
+  }
+}
+
+function validateLayerBase(
+  layer: unknown,
+  index: number,
+  errors: TemplateValidationIssue[],
+  layerIds: Set<string>,
+) {
+  const path = `layers[${index}]`
+
+  if (!isObject(layer)) {
+    addError(errors, path, 'Layer must be an object.')
+    return
+  }
+
+  if (!isNonEmptyString(layer.id)) {
+    addError(errors, `${path}.id`, 'Layer id must be a non-empty string.')
+  } else {
+    addDuplicateIdError(layerIds, layer.id, `${path}.id`, 'Layer', errors)
+  }
+
+  if (!isNonEmptyString(layer.name)) {
+    addError(errors, `${path}.name`, 'Layer name must be a non-empty string.')
+  }
+
+  if (!isLayerType(layer.type)) {
+    addError(errors, `${path}.type`, 'Layer type must be text, image, shape, background, or group.')
+  }
+
+  if (typeof layer.visible !== 'boolean') {
+    addError(errors, `${path}.visible`, 'Layer visible must be a boolean.')
+  }
+
+  if (typeof layer.locked !== 'boolean') {
+    addError(errors, `${path}.locked`, 'Layer locked must be a boolean.')
+  }
+
+  if (!isFiniteNumber(layer.zIndex)) {
+    addError(errors, `${path}.zIndex`, 'Layer zIndex must be a finite number.')
+  }
+
+  validateBox(layer.box, `${path}.box`, errors)
+
+  if (layer.opacity !== undefined && (!isFiniteNumber(layer.opacity) || layer.opacity < 0 || layer.opacity > 1)) {
+    addError(errors, `${path}.opacity`, 'Layer opacity must be a finite number between 0 and 1.')
+  }
+}
+
 function validateField(
   field: unknown,
   index: number,
-  errors: TemplateValidationError[],
+  errors: TemplateValidationIssue[],
   fieldIds: Set<string>,
 ) {
   const path = `fields[${index}]`
@@ -120,7 +200,7 @@ function validateField(
   if (!isNonEmptyString(field.id)) {
     addError(errors, `${path}.id`, 'Field id must be a non-empty string.')
   } else {
-    fieldIds.add(field.id)
+    addDuplicateIdError(fieldIds, field.id, `${path}.id`, 'Field', errors)
   }
 
   if (!isNonEmptyString(field.label)) {
@@ -151,7 +231,7 @@ function validateField(
 function validateEditableField(
   field: unknown,
   index: number,
-  errors: TemplateValidationError[],
+  errors: TemplateValidationIssue[],
   fieldKeys: Set<string>,
 ) {
   const path = `editableFields[${index}]`
@@ -184,14 +264,18 @@ function validateEditableField(
   }
 
   if (field.defaultValue !== undefined && !isEditableDefaultValue(field.defaultValue)) {
-    addError(errors, `${path}.defaultValue`, 'Editable field defaultValue must be a string, number, or boolean.')
+    addError(
+      errors,
+      `${path}.defaultValue`,
+      'Editable field defaultValue must be a string, number, or boolean.',
+    )
   }
 }
 
 function validateBinding(
   binding: unknown,
   index: number,
-  errors: TemplateValidationError[],
+  errors: TemplateValidationIssue[],
   fieldIds: Set<string>,
   elementIds: Set<string>,
 ) {
@@ -223,7 +307,7 @@ function validateBinding(
   }
 }
 
-function validateTextElement(element: TemplateValidationObject, path: string, errors: TemplateValidationError[]) {
+function validateTextElement(element: TemplateValidationObject, path: string, errors: TemplateValidationIssue[]) {
   if (typeof element.fallbackText !== 'string') {
     addError(errors, `${path}.fallbackText`, 'Text fallbackText must be a string.')
   }
@@ -269,13 +353,17 @@ function validateTextElement(element: TemplateValidationObject, path: string, er
       const minScaleX = element.behavior.minScaleX
 
       if (!isFiniteNumber(minScaleX) || minScaleX <= 0 || minScaleX > 1) {
-        addError(errors, `${path}.behavior.minScaleX`, 'Text behavior.minScaleX must be greater than 0 and less than or equal to 1.')
+        addError(
+          errors,
+          `${path}.behavior.minScaleX`,
+          'Text behavior.minScaleX must be greater than 0 and less than or equal to 1.',
+        )
       }
     }
   }
 }
 
-function validateImageElement(element: TemplateValidationObject, path: string, errors: TemplateValidationError[]) {
+function validateImageElement(element: TemplateValidationObject, path: string, errors: TemplateValidationIssue[]) {
   const opacity = element.opacity
 
   if (!isFiniteNumber(opacity) || opacity < 0 || opacity > 1) {
@@ -287,7 +375,7 @@ function validateImageElement(element: TemplateValidationObject, path: string, e
   }
 }
 
-function validateShapeElement(element: TemplateValidationObject, path: string, errors: TemplateValidationError[]) {
+function validateShapeElement(element: TemplateValidationObject, path: string, errors: TemplateValidationIssue[]) {
   if (!isShapeType(element.shapeType)) {
     addError(errors, `${path}.shapeType`, 'Shape shapeType must be rectangle or ellipse.')
   }
@@ -306,8 +394,9 @@ function validateShapeElement(element: TemplateValidationObject, path: string, e
 function validateElement(
   element: unknown,
   index: number,
-  errors: TemplateValidationError[],
+  errors: TemplateValidationIssue[],
   layerIds: Set<string>,
+  elementIds: Set<string>,
 ) {
   const path = `elements[${index}]`
 
@@ -318,6 +407,8 @@ function validateElement(
 
   if (!isNonEmptyString(element.id)) {
     addError(errors, `${path}.id`, 'Element id must be a non-empty string.')
+  } else {
+    elementIds.add(element.id)
   }
 
   if (!isNonEmptyString(element.layerId)) {
@@ -386,19 +477,261 @@ function validateElement(
   }
 }
 
-export function validateTemplate(input: unknown): TemplateValidationResult {
-  const errors: TemplateValidationError[] = []
+function validateTextLayer(
+  layer: TemplateValidationObject,
+  path: string,
+  errors: TemplateValidationIssue[],
+  warnings: TemplateValidationIssue[],
+  fieldIds: Set<string>,
+  usedFieldIds: Set<string>,
+) {
+  if (layer.fieldId !== undefined) {
+    if (!isNonEmptyString(layer.fieldId)) {
+      addError(errors, `${path}.fieldId`, 'Text layer fieldId must be a non-empty string.')
+    } else if (!fieldIds.has(layer.fieldId)) {
+      addError(errors, `${path}.fieldId`, 'Field does not exist.')
+    } else {
+      usedFieldIds.add(layer.fieldId)
+    }
+  }
+
+  if (layer.fallbackText !== undefined && typeof layer.fallbackText !== 'string') {
+    addError(errors, `${path}.fallbackText`, 'Text layer fallbackText must be a string.')
+  }
+
+  const hasFallbackText = typeof layer.fallbackText === 'string' && layer.fallbackText.length > 0
+  if (layer.fieldId === undefined && !hasFallbackText) {
+    addWarning(warnings, path, 'Text layer has neither fieldId nor fallbackText.')
+  }
+
+  if (layer.style !== undefined) {
+    if (!isObject(layer.style)) {
+      addError(errors, `${path}.style`, 'Text layer style must be an object.')
+      return
+    }
+
+    if (!isNonEmptyString(layer.style.fontFamily)) {
+      addError(errors, `${path}.style.fontFamily`, 'Text layer style.fontFamily must be a non-empty string.')
+    }
+
+    if (!isFiniteNumber(layer.style.fontSize) || layer.style.fontSize <= 0) {
+      addError(errors, `${path}.style.fontSize`, 'Text layer style.fontSize must be greater than 0.')
+    }
+
+    if (!isNonEmptyString(layer.style.color)) {
+      addError(errors, `${path}.style.color`, 'Text layer style.color must be a non-empty string.')
+    }
+
+    if (!isTextAlign(layer.style.textAlign)) {
+      addError(errors, `${path}.style.textAlign`, 'Text layer style.textAlign must be left, center, or right.')
+    }
+  }
+
+  if (layer.behavior !== undefined) {
+    if (!isObject(layer.behavior)) {
+      addError(errors, `${path}.behavior`, 'Text layer behavior must be an object.')
+      return
+    }
+
+    if (typeof layer.behavior.fitInBox !== 'boolean') {
+      addError(errors, `${path}.behavior.fitInBox`, 'Text layer behavior.fitInBox must be a boolean.')
+    }
+
+    if (!isTextFitMode(layer.behavior.fitMode)) {
+      addError(errors, `${path}.behavior.fitMode`, 'Text layer behavior.fitMode must be scaleX.')
+    }
+
+    if (
+      !isFiniteNumber(layer.behavior.minScaleX) ||
+      layer.behavior.minScaleX <= 0 ||
+      layer.behavior.minScaleX > 1
+    ) {
+      addError(
+        errors,
+        `${path}.behavior.minScaleX`,
+        'Text layer behavior.minScaleX must be greater than 0 and less than or equal to 1.',
+      )
+    }
+
+    if (layer.behavior.whiteSpace !== 'nowrap' && layer.behavior.whiteSpace !== 'normal') {
+      addError(errors, `${path}.behavior.whiteSpace`, 'Text layer behavior.whiteSpace must be nowrap or normal.')
+    }
+  }
+}
+
+function validateImageLayer(
+  layer: TemplateValidationObject,
+  path: string,
+  errors: TemplateValidationIssue[],
+  assetIds: Set<string>,
+  usedAssetIds: Set<string>,
+) {
+  if (layer.assetId !== undefined) {
+    if (!isNonEmptyString(layer.assetId)) {
+      addError(errors, `${path}.assetId`, 'Image layer assetId must be a non-empty string.')
+    } else if (!assetIds.has(layer.assetId)) {
+      addError(errors, `${path}.assetId`, 'Asset does not exist.')
+    } else {
+      usedAssetIds.add(layer.assetId)
+    }
+  }
+
+  if (layer.fallbackPath !== undefined && typeof layer.fallbackPath !== 'string') {
+    addError(errors, `${path}.fallbackPath`, 'Image layer fallbackPath must be a string.')
+  }
+
+  if (!isObject(layer.style)) {
+    addError(errors, `${path}.style`, 'Image layer style must be an object.')
+    return
+  }
+
+  if (!isImageObjectFit(layer.style.objectFit)) {
+    addError(errors, `${path}.style.objectFit`, 'Image layer style.objectFit must be contain, cover, or fill.')
+  }
+}
+
+function validateShapeLayer(layer: TemplateValidationObject, path: string, errors: TemplateValidationIssue[]) {
+  if (!isShapeType(layer.shape)) {
+    addError(errors, `${path}.shape`, 'Shape layer shape must be rectangle, ellipse, or line.')
+  }
+
+  if (!isObject(layer.style)) {
+    addError(errors, `${path}.style`, 'Shape layer style must be an object.')
+    return
+  }
+
+  if (!isNonEmptyString(layer.style.fill)) {
+    addError(errors, `${path}.style.fill`, 'Shape layer style.fill must be a non-empty string.')
+  }
+
+  if (!isNonEmptyString(layer.style.stroke)) {
+    addError(errors, `${path}.style.stroke`, 'Shape layer style.stroke must be a non-empty string.')
+  }
+
+  if (!isFiniteNumber(layer.style.strokeWidth) || layer.style.strokeWidth < 0) {
+    addError(errors, `${path}.style.strokeWidth`, 'Shape layer style.strokeWidth must be greater than or equal to 0.')
+  }
+
+  if (!isFiniteNumber(layer.style.borderRadius) || layer.style.borderRadius < 0) {
+    addError(errors, `${path}.style.borderRadius`, 'Shape layer style.borderRadius must be greater than or equal to 0.')
+  }
+}
+
+function validateBackgroundLayer(
+  layer: TemplateValidationObject,
+  path: string,
+  errors: TemplateValidationIssue[],
+  assetIds: Set<string>,
+  usedAssetIds: Set<string>,
+) {
+  if (!isObject(layer.style)) {
+    addError(errors, `${path}.style`, 'Background layer style must be an object.')
+    return
+  }
+
+  if (layer.style.fill !== undefined && typeof layer.style.fill !== 'string') {
+    addError(errors, `${path}.style.fill`, 'Background layer style.fill must be a string.')
+  }
+
+  if (layer.style.assetId !== undefined) {
+    if (!isNonEmptyString(layer.style.assetId)) {
+      addError(errors, `${path}.style.assetId`, 'Background layer style.assetId must be a non-empty string.')
+    } else if (!assetIds.has(layer.style.assetId)) {
+      addError(errors, `${path}.style.assetId`, 'Asset does not exist.')
+    } else {
+      usedAssetIds.add(layer.style.assetId)
+    }
+  }
+
+  if (layer.style.objectFit !== undefined && !isImageObjectFit(layer.style.objectFit)) {
+    addError(errors, `${path}.style.objectFit`, 'Background layer style.objectFit must be contain, cover, or fill.')
+  }
+}
+
+function validateGroupLayer(
+  layer: TemplateValidationObject,
+  path: string,
+  errors: TemplateValidationIssue[],
+  layerIds: Set<string>,
+) {
+  if (!Array.isArray(layer.children)) {
+    addError(errors, `${path}.children`, 'Group layer children must be an array.')
+    return
+  }
+
+  layer.children.forEach((childId, childIndex) => {
+    const childPath = `${path}.children[${childIndex}]`
+
+    if (!isNonEmptyString(childId)) {
+      addError(errors, childPath, 'Group layer child id must be a non-empty string.')
+      return
+    }
+
+    if (!layerIds.has(childId)) {
+      addError(errors, childPath, 'Layer does not exist.')
+    }
+  })
+}
+
+function validateLayerDetails(
+  layer: unknown,
+  index: number,
+  errors: TemplateValidationIssue[],
+  warnings: TemplateValidationIssue[],
+  fieldIds: Set<string>,
+  usedFieldIds: Set<string>,
+  assetIds: Set<string>,
+  usedAssetIds: Set<string>,
+  layerIds: Set<string>,
+) {
+  const path = `layers[${index}]`
+
+  if (!isObject(layer) || !isLayerType(layer.type)) {
+    return
+  }
+
+  if (layer.type === 'text') {
+    validateTextLayer(layer, path, errors, warnings, fieldIds, usedFieldIds)
+    return
+  }
+
+  if (layer.type === 'image') {
+    validateImageLayer(layer, path, errors, assetIds, usedAssetIds)
+    return
+  }
+
+  if (layer.type === 'shape') {
+    validateShapeLayer(layer, path, errors)
+    return
+  }
+
+  if (layer.type === 'background') {
+    validateBackgroundLayer(layer, path, errors, assetIds, usedAssetIds)
+    return
+  }
+
+  if (layer.type === 'group') {
+    validateGroupLayer(layer, path, errors, layerIds)
+  }
+}
+
+export function validateTemplate(
+  input: unknown,
+  options: ValidateTemplateOptions = {},
+): TemplateValidationResult {
+  const errors: TemplateValidationIssue[] = []
+  const warnings: TemplateValidationIssue[] = []
   const layerIds = new Set<string>()
   const elementIds = new Set<string>()
   const fieldIds = new Set<string>()
+  const assetIds = new Set<string>()
+  const usedFieldIds = new Set<string>()
+  const usedAssetIds = new Set<string>()
+  const mode = options.mode ?? 'draft'
 
   if (!isObject(input)) {
     addError(errors, '', 'Template must be an object.')
-
-    return {
-      valid: false,
-      errors,
-    }
+    return createValidationResult(errors, warnings)
   }
 
   if (!isNonEmptyString(input.schemaVersion)) {
@@ -416,11 +749,11 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
   if (!isObject(input.canvas)) {
     addError(errors, 'canvas', 'canvas must be an object.')
   } else {
-    if (typeof input.canvas.width !== 'number' || input.canvas.width <= 0) {
+    if (!isFiniteNumber(input.canvas.width) || input.canvas.width <= 0) {
       addError(errors, 'canvas.width', 'canvas.width must be greater than 0.')
     }
 
-    if (typeof input.canvas.height !== 'number' || input.canvas.height <= 0) {
+    if (!isFiniteNumber(input.canvas.height) || input.canvas.height <= 0) {
       addError(errors, 'canvas.height', 'canvas.height must be greater than 0.')
     }
 
@@ -435,11 +768,21 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
     if (!isObject(input.output.liveboard)) {
       addError(errors, 'output.liveboard', 'output.liveboard must be an object.')
     } else if (typeof input.output.liveboard.templateName !== 'string') {
-      addError(
-        errors,
-        'output.liveboard.templateName',
-        'output.liveboard.templateName must be a string.',
-      )
+      addError(errors, 'output.liveboard.templateName', 'output.liveboard.templateName must be a string.')
+    } else if (input.output.liveboard.templateName.trim().length === 0) {
+      if (mode === 'finalExport') {
+        addError(
+          errors,
+          'output.liveboard.templateName',
+          'output.liveboard.templateName must not be empty in final export mode.',
+        )
+      } else {
+        addWarning(
+          warnings,
+          'output.liveboard.templateName',
+          'output.liveboard.templateName is empty in draft mode.',
+        )
+      }
     }
   }
 
@@ -454,24 +797,20 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
   if (!Array.isArray(input.layers)) {
     addError(errors, 'layers', 'layers must be an array.')
   } else {
-    input.layers.forEach((layer, index) => {
-      validateLayer(layer, index, errors)
+    if (input.layers.length === 0) {
+      addWarning(warnings, 'layers', 'Template has no layers.')
+    }
 
-      if (isObject(layer) && isNonEmptyString(layer.id)) {
-        layerIds.add(layer.id)
-      }
+    input.layers.forEach((layer, index) => {
+      validateLayerBase(layer, index, errors, layerIds)
     })
   }
 
-  if (!Array.isArray(input.elements)) {
+  if (input.elements !== undefined && !Array.isArray(input.elements)) {
     addError(errors, 'elements', 'elements must be an array.')
-  } else {
+  } else if (Array.isArray(input.elements)) {
     input.elements.forEach((element, index) => {
-      validateElement(element, index, errors, layerIds)
-
-      if (isObject(element) && isNonEmptyString(element.id)) {
-        elementIds.add(element.id)
-      }
+      validateElement(element, index, errors, layerIds, elementIds)
     })
   }
 
@@ -488,6 +827,8 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
 
       if (!isNonEmptyString(asset.id)) {
         addError(errors, `${path}.id`, 'Asset id must be a non-empty string.')
+      } else {
+        addDuplicateIdError(assetIds, asset.id, `${path}.id`, 'Asset', errors)
       }
 
       if (!isNonEmptyString(asset.name)) {
@@ -507,8 +848,10 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
   if (input.editableFields !== undefined && !Array.isArray(input.editableFields)) {
     addError(errors, 'editableFields', 'editableFields must be an array.')
   } else if (Array.isArray(input.editableFields)) {
+    const fieldKeys = new Set<string>()
+
     input.editableFields.forEach((field, index) => {
-      validateEditableField(field, index, errors, fieldIds)
+      validateEditableField(field, index, errors, fieldKeys)
     })
   }
 
@@ -529,6 +872,14 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
 
     if (!isObject(input.preview.background)) {
       addError(errors, 'preview.background', 'preview.background must be an object.')
+    } else if (input.preview.background.type === 'image') {
+      if (!isNonEmptyString(input.preview.background.assetId)) {
+        addError(errors, 'preview.background.assetId', 'preview.background.assetId must be a non-empty string.')
+      } else if (!assetIds.has(input.preview.background.assetId)) {
+        addError(errors, 'preview.background.assetId', 'Asset does not exist.')
+      } else {
+        usedAssetIds.add(input.preview.background.assetId)
+      }
     }
 
     if (typeof input.preview.showSafeArea !== 'boolean') {
@@ -572,8 +923,45 @@ export function validateTemplate(input: unknown): TemplateValidationResult {
     }
   }
 
-  return {
-    valid: errors.length === 0,
-    errors,
+  if (Array.isArray(input.layers)) {
+    input.layers.forEach((layer, index) => {
+      validateLayerDetails(
+        layer,
+        index,
+        errors,
+        warnings,
+        fieldIds,
+        usedFieldIds,
+        assetIds,
+        usedAssetIds,
+        layerIds,
+      )
+    })
   }
+
+  if (Array.isArray(input.fields)) {
+    input.fields.forEach((field, index) => {
+      if (!isObject(field) || !isNonEmptyString(field.id)) {
+        return
+      }
+
+      if (!usedFieldIds.has(field.id)) {
+        addWarning(warnings, `fields[${index}].id`, 'Field is defined but not used by any text layer.')
+      }
+    })
+  }
+
+  if (Array.isArray(input.assets)) {
+    input.assets.forEach((asset, index) => {
+      if (!isObject(asset) || !isNonEmptyString(asset.id)) {
+        return
+      }
+
+      if (!usedAssetIds.has(asset.id)) {
+        addWarning(warnings, `assets[${index}].id`, 'Asset is defined but not used.')
+      }
+    })
+  }
+
+  return createValidationResult(errors, warnings)
 }

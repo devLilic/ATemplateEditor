@@ -20,6 +20,12 @@ function findByExactText(container: ParentNode, text: string) {
   return findAllByExactText(container, text)[0]
 }
 
+function findButtonByText(container: ParentNode, text: string) {
+  return Array.from(container.querySelectorAll('button')).find(
+    (element) => element.textContent?.trim() === text,
+  ) as HTMLButtonElement | undefined
+}
+
 function hasSelectedMarker(element: HTMLElement | null | undefined) {
   let current = element
 
@@ -194,6 +200,32 @@ describe('TemplateEditorShell', () => {
 
     try {
       expect(view.container.textContent).toContain('Title')
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('renders a draft validation panel with errors and warnings sections', async () => {
+    const view = await renderTemplateEditorShell()
+
+    try {
+      expect(view.container.textContent).toContain('Draft validation')
+      expect(view.container.textContent).toContain('warnings')
+      expect(view.container.textContent).toContain('output.liveboard.templateName')
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('disables export json when final export validation has errors', async () => {
+    const view = await renderTemplateEditorShell()
+
+    try {
+      const exportButton = findButtonByText(view.container, 'Export JSON')
+
+      expect(exportButton).toBeDefined()
+      expect(exportButton?.disabled).toBe(true)
+      expect(view.container.textContent).toContain('Final export blocked')
     } finally {
       await view.cleanup()
     }

@@ -27,6 +27,7 @@ import { PreviewDataPanel } from './PreviewDataPanel'
 import { TemplateSettingsPanel } from './TemplateSettingsPanel'
 import { PreviewCanvas } from '@/shared/preview16x9'
 import { createDefaultTemplate } from '@/shared/template-contract/templateDefaults'
+import { validateTemplate } from '@/shared/validation/templateValidation'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -84,6 +85,15 @@ export function TemplateEditorShell() {
         ? editorState.template.layers.find((layer) => layer.id === editorState.selectedLayerId)
         : undefined,
     [editorState],
+  )
+  const activeTemplate = editorState?.template ?? selectedTemplate
+  const draftValidation = useMemo(
+    () => (activeTemplate ? validateTemplate(activeTemplate, { mode: 'draft' }) : undefined),
+    [activeTemplate],
+  )
+  const finalExportValidation = useMemo(
+    () => (activeTemplate ? validateTemplate(activeTemplate, { mode: 'finalExport' }) : undefined),
+    [activeTemplate],
   )
 
   const handleElementChange = (elementId: string, patch: Parameters<typeof updateElement>[2]) => {
@@ -225,13 +235,19 @@ export function TemplateEditorShell() {
                       Create template
                     </Button>
                     <Button
+                      disabled={Boolean(finalExportValidation && finalExportValidation.errors.length > 0)}
                       onClick={() => {
-                        if (!selectedTemplate) {
+                        if (!activeTemplate) {
                           setExportJson('No template selected')
                           return
                         }
 
-                        setExportJson(exportTemplateToJson(selectedTemplate))
+                        if (finalExportValidation && finalExportValidation.errors.length > 0) {
+                          setExportJson('Export blocked by final export validation errors.')
+                          return
+                        }
+
+                        setExportJson(exportTemplateToJson(activeTemplate))
                       }}
                       variant='neutral'
                     >
@@ -474,7 +490,7 @@ export function TemplateEditorShell() {
                 <div className='w-full overflow-x-auto rounded-lg border border-ui-border bg-ui-card/25 p-3 sm:p-4'>
                   <PreviewCanvas
                     height={540}
-                    template={selectedTemplate}
+                    template={activeTemplate ?? selectedTemplate}
                     width={960}
                   />
                 </div>
@@ -489,6 +505,62 @@ export function TemplateEditorShell() {
                     value={exportJson}
                   />
                 </div>
+                {draftValidation ? (
+                  <div className='rounded-lg border border-ui-border bg-ui-card/20 p-3' data-testid='validation-panel'>
+                    <div className='mb-3 flex flex-wrap items-center gap-2'>
+                      <span className='text-xs font-medium uppercase tracking-wide text-ui-secondary'>
+                        Draft validation
+                      </span>
+                      <Badge variant={draftValidation.errors.length > 0 ? 'danger' : 'active'}>
+                        {draftValidation.errors.length} errors
+                      </Badge>
+                      <Badge variant={draftValidation.warnings.length > 0 ? 'warning' : 'muted'}>
+                        {draftValidation.warnings.length} warnings
+                      </Badge>
+                      {finalExportValidation?.errors.length ? (
+                        <Badge variant='danger'>Final export blocked</Badge>
+                      ) : (
+                        <Badge variant='active'>Final export ready</Badge>
+                      )}
+                    </div>
+
+                    {draftValidation.errors.length === 0 && draftValidation.warnings.length === 0 ? (
+                      <p className='text-sm text-ui-secondary'>No draft validation issues.</p>
+                    ) : (
+                      <div className='space-y-3'>
+                        {draftValidation.errors.length > 0 ? (
+                          <div>
+                            <div className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-ui-danger'>
+                              Errors
+                            </div>
+                            <ul className='space-y-1 text-sm text-ui-danger'>
+                              {draftValidation.errors.map((issue, index) => (
+                                <li key={`draft-error-${issue.path}-${index}`}>
+                                  <span className='font-mono'>{issue.path}</span>: {issue.message}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+
+                        {draftValidation.warnings.length > 0 ? (
+                          <div>
+                            <div className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-ui-warning'>
+                              Warnings
+                            </div>
+                            <ul className='space-y-1 text-sm text-ui-warning'>
+                              {draftValidation.warnings.map((issue, index) => (
+                                <li key={`draft-warning-${issue.path}-${index}`}>
+                                  <span className='font-mono'>{issue.path}</span>: {issue.message}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <EmptyState

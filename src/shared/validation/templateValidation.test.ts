@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultTemplate } from '../template-contract/templateDefaults'
 import {
+  createBackgroundLayer,
+  createEmptyTemplate,
+  createGroupLayer,
+  createImageLayer,
   createImageElement,
+  createTextLayer,
   createLayer,
   createShapeElement,
   createTextElement,
@@ -12,6 +17,32 @@ import {
   type TemplateTextElement,
 } from '../template-contract/templateContract'
 import { validateTemplate } from './templateValidation'
+
+interface TemplateValidationWarningLike {
+  path: string
+  message: string
+}
+
+interface TemplateValidationResultLike {
+  valid: boolean
+  errors: Array<{ path: string; message: string }>
+  warnings: TemplateValidationWarningLike[]
+}
+
+function createValidationTemplate(
+  patch: Partial<TemplateContract> = {},
+): TemplateContract {
+  return {
+    ...createEmptyTemplate(),
+    type: 'graphic',
+    elements: [],
+    editableFields: [],
+    bindings: [],
+    previewData: {},
+    fallbackValues: {},
+    ...patch,
+  } as TemplateContract
+}
 
 function withoutTemplateField(fieldName: keyof TemplateContract): TemplateContract {
   const template = { ...createDefaultTemplate() } as Partial<TemplateContract>
@@ -26,6 +57,31 @@ function expectInvalidTemplate(template: TemplateContract, path: string) {
 
   expect(result.valid).toBe(false)
   expect(result.errors).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        path,
+        message: expect.any(String),
+      }),
+    ]),
+  )
+}
+
+function validateTemplateWithOptions(
+  template: TemplateContract,
+  options?: { mode?: 'draft' | 'finalExport' },
+) {
+  return (
+    validateTemplate as unknown as (
+      value: TemplateContract,
+      validationOptions?: { mode?: 'draft' | 'finalExport' },
+    ) => TemplateValidationResultLike
+  )(template, options)
+}
+
+function expectWarningTemplate(template: TemplateContract, path: string) {
+  const result = validateTemplateWithOptions(template)
+
+  expect(result.warnings).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
         path,
@@ -1122,6 +1178,196 @@ describe('template validation', () => {
         ],
       },
       'elements[0].borderWidth',
+    )
+  })
+
+  it('returns warnings alongside validity and errors', () => {
+    const result = validateTemplateWithOptions(createDefaultTemplate())
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        valid: expect.any(Boolean),
+        errors: expect.any(Array),
+        warnings: expect.any(Array),
+      }),
+    )
+  })
+
+  it('rejects duplicate field ids', () => {
+    expectInvalidTemplate(
+      createValidationTemplate({
+        fields: [
+          { id: 'title', label: 'Title', type: 'text', required: false },
+          { id: 'title', label: 'Subtitle', type: 'text', required: false },
+        ],
+      }),
+      'fields[1].id',
+    )
+  })
+
+  it('rejects duplicate layer ids', () => {
+    expectInvalidTemplate(
+      createValidationTemplate({
+        layers: [
+          createTextLayer({ name: 'Title', fieldId: 'title' }),
+          {
+            ...createImageLayer({ name: 'Logo' }),
+            id: 'duplicate-layer',
+          },
+          {
+            ...createBackgroundLayer({ name: 'Bg' }),
+            id: 'duplicate-layer',
+          },
+        ],
+      }),
+      'layers[2].id',
+    )
+  })
+
+  it('rejects duplicate asset ids', () => {
+    expectInvalidTemplate(
+      createValidationTemplate({
+        assets: [
+          { id: 'asset-1', name: 'Logo A', type: 'image', path: '/assets/logo-a.png' },
+          { id: 'asset-1', name: 'Logo B', type: 'image', path: '/assets/logo-b.png' },
+        ],
+      }),
+      'assets[1].id',
+    )
+  })
+
+  it('rejects a text layer with a missing field reference', () => {
+    expectInvalidTemplate(
+      createValidationTemplate({
+        layers: [
+          createTextLayer({
+            name: 'Title',
+            fieldId: 'missing-field',
+          }),
+        ],
+      }),
+      'layers[0].fieldId',
+    )
+  })
+
+  it('rejects an image layer with a missing asset reference', () => {
+    expectInvalidTemplate(
+      createValidationTemplate({
+        layers: [
+          createImageLayer({
+            name: 'Logo',
+            assetId: 'missing-asset',
+          }),
+        ],
+      }),
+      'layers[0].assetId',
+    )
+  })
+
+  it('rejects a background layer with a missing asset reference', () => {
+    expectInvalidTemplate(
+      createValidationTemplate({
+        layers: [
+          createBackgroundLayer({
+            name: 'Background',
+            style: {
+              assetId: 'missing-asset',
+            },
+          }),
+        ],
+      }),
+      'layers[0].style.assetId',
+    )
+  })
+
+  it('rejects a group layer with missing child layer references', () => {
+    const titleLayer = createTextLayer({
+      name: 'Title',
+      fieldId: 'title',
+    })
+
+    expectInvalidTemplate(
+      createValidationTemplate({
+        layers: [
+          titleLayer,
+          createGroupLayer({
+            name: 'Group',
+            children: [titleLayer.id, 'missing-layer'],
+          }),
+        ],
+      }),
+      'layers[1].children[1]',
+    )
+  })
+
+  it('rejects an empty liveboard templateName in final export mode', () => {
+    const result = validateTemplateWithOptions(createDefaultTemplate(), {
+      mode: 'finalExport',
+    })
+
+    expect(result.valid).toBe(false)
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'output.liveboard.templateName',
+          message: expect.any(String),
+        }),
+      ]),
+    )
+  })
+
+  it('warns when a field is defined but unused by text layers', () => {
+    expectWarningTemplate(
+      createValidationTemplate({
+        fields: [{ id: 'title', label: 'Title', type: 'text', required: false }],
+        layers: [createImageLayer({ name: 'Logo' })],
+      }),
+      'fields[0].id',
+    )
+  })
+
+  it('warns when a text layer has neither fieldId nor fallbackText', () => {
+    expectWarningTemplate(
+      createValidationTemplate({
+        layers: [
+          createTextLayer({
+            name: 'Title',
+            fallbackText: '',
+          }),
+        ],
+      }),
+      'layers[0]',
+    )
+  })
+
+  it('warns when a template has no layers', () => {
+    expectWarningTemplate(createValidationTemplate(), 'layers')
+  })
+
+  it('warns when an asset is defined but unused', () => {
+    expectWarningTemplate(
+      createValidationTemplate({
+        assets: [{ id: 'asset-1', name: 'Logo', type: 'image', path: '/assets/logo.png' }],
+        layers: [createTextLayer({ name: 'Title', fallbackText: 'Title' })],
+      }),
+      'assets[0].id',
+    )
+  })
+
+  it('warns when liveboard templateName is empty in draft mode', () => {
+    const result = validateTemplateWithOptions(createDefaultTemplate(), {
+      mode: 'draft',
+    })
+
+    expect(result.valid).toBe(true)
+    expect(result.errors).toEqual([])
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'output.liveboard.templateName',
+          message: expect.any(String),
+        }),
+      ]),
     )
   })
 })

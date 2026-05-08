@@ -417,6 +417,74 @@ The default template currently provides:
 - Exported asset references use `path`.
 - Exported preview authoring data uses `preview.sampleData`.
 
+## Validation
+
+`validateTemplate(template, options?)` returns:
+
+- `valid`
+- `errors`
+- `warnings`
+
+Each validation issue contains:
+
+- `path`
+- `message`
+
+Validation intent:
+
+- `errors` block a valid template result.
+- `warnings` describe incomplete or risky authoring state without making the template invalid in draft mode.
+
+### Validation Modes
+
+`validateTemplate` supports:
+
+- `mode: "draft"`
+- `mode: "finalExport"`
+
+Draft mode:
+
+- keeps authoring permissive
+- reports `output.liveboard.templateName === ""` as a warning
+
+Final export mode:
+
+- is stricter for exported delivery
+- reports `output.liveboard.templateName === ""` as an error
+
+### Duplicate Id Validation
+
+The validator reports errors for duplicate ids in:
+
+- `fields[].id`
+- `layers[].id`
+- `assets[].id`
+
+Ids must be unique inside their own collection.
+
+### Invalid Reference Validation
+
+The validator reports errors when a reference points to a missing target:
+
+- `text` layer `fieldId` references a missing field
+- `image` layer `assetId` references a missing asset
+- `background` layer `style.assetId` references a missing asset
+- `group` layer `children[]` references a missing layer
+
+These checks protect the final contract from dangling references in render/export flows.
+
+### Warning Cases
+
+Current warning cases include:
+
+- a field is defined but unused by any text layer
+- a text layer has neither `fieldId` nor `fallbackText`
+- a template has no layers
+- an asset is defined but unused
+- `output.liveboard.templateName` is empty in draft mode
+
+Warnings are intended to surface editorial cleanup work before final export, not to block ongoing authoring.
+
 ## Application Compatibility
 
 ### TemplateEditor
