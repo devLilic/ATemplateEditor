@@ -6,19 +6,18 @@ import {
   useState,
   type CSSProperties,
 } from 'react'
-import { getTemplateFieldValue } from '../template-contract/templateDefaults'
 import type {
   TemplateAsset,
   TemplateBackgroundLayerContract,
-  TemplateContract,
   TemplateImageLayerContract,
   TemplateLayer,
   TemplateShapeLayerContract,
   TemplateTextLayerContract,
 } from '../template-contract/templateContract'
+import { resolveTextLayerContent } from './resolveLayerContent'
+import type { Preview16x9Input } from './previewTypes'
 
-export interface PreviewCanvasProps {
-  template: TemplateContract
+export interface PreviewCanvasProps extends Preview16x9Input {
   width: number
   height: number
   className?: string
@@ -121,7 +120,7 @@ export function calculatePreviewFrame(
   }
 }
 
-function isLayerVisible(template: TemplateContract, layer: TemplateLayer) {
+function isLayerVisible(template: Preview16x9Input['template'], layer: TemplateLayer) {
   if (layer.visible === false) {
     return false
   }
@@ -138,10 +137,27 @@ function isLayerVisible(template: TemplateContract, layer: TemplateLayer) {
     return false
   }
 
-  return getTemplateFieldValue(template, field.id).trim().length > 0
+  return resolveTextLayerContent({ template }, {
+    ...layer,
+    type: 'text',
+    fieldId: field.id,
+    fallbackText: '',
+    style: {
+      fontFamily: 'IBM Plex Sans',
+      fontSize: 48,
+      color: '#FFFFFF',
+      textAlign: 'left',
+    },
+    behavior: {
+      fitInBox: true,
+      fitMode: 'scaleX',
+      minScaleX: 0.65,
+      whiteSpace: 'nowrap',
+    },
+  }).trim().length > 0
 }
 
-function getPreviewBackgroundAsset(template: TemplateContract): TemplateAsset | undefined {
+function getPreviewBackgroundAsset(template: Preview16x9Input['template']): TemplateAsset | undefined {
   const assetId =
     template.preview.background.type === 'image'
       ? template.preview.background.assetId
@@ -156,7 +172,7 @@ function getPreviewBackgroundAsset(template: TemplateContract): TemplateAsset | 
   return template.assets.find((asset) => asset.id === assetId)
 }
 
-function getPreviewFrameBackground(template: TemplateContract) {
+function getPreviewFrameBackground(template: Preview16x9Input['template']) {
   if (template.preview.background.type === 'color') {
     return template.preview.background.value
   }
@@ -164,7 +180,7 @@ function getPreviewFrameBackground(template: TemplateContract) {
   return '#111827'
 }
 
-function resolveAssetPath(template: TemplateContract, assetId?: string, fallbackPath?: string) {
+function resolveAssetPath(template: Preview16x9Input['template'], assetId?: string, fallbackPath?: string) {
   if (assetId) {
     const asset = template.assets.find((currentAsset) => currentAsset.id === assetId)
 
@@ -177,9 +193,17 @@ function resolveAssetPath(template: TemplateContract, assetId?: string, fallback
 }
 
 export function calculatePreviewLayout(
-  template: TemplateContract,
+  input: Preview16x9Input | Preview16x9Input['template'],
   frame: PreviewFrameLayout,
 ): PreviewElementLayout[] {
+  const resolvedInput =
+    'template' in input
+      ? (input as Preview16x9Input)
+      : ({
+          template: input,
+        } satisfies Preview16x9Input)
+  const { template } = resolvedInput
+
   return [...template.layers]
     .filter((layer) => isLayerVisible(template, layer))
     .sort((left, right) => left.zIndex - right.zIndex)
@@ -208,9 +232,7 @@ export function calculatePreviewLayout(
           color: textLayer.style?.color ?? '#FFFFFF',
           textAlign: textLayer.style?.textAlign ?? 'left',
         }
-        const content = textLayer.fieldId
-          ? getTemplateFieldValue(template, textLayer.fieldId)
-          : textLayer.fallbackText ?? ''
+        const content = resolveTextLayerContent(resolvedInput, textLayer)
         const behavior = {
           fitInBox: textLayer.behavior?.fitInBox ?? true,
           fitMode: textLayer.behavior?.fitMode ?? 'scaleX',
@@ -579,9 +601,16 @@ function renderLayerBounds(layout: PreviewElementLayout[]) {
   ))
 }
 
-export function PreviewCanvas({ template, width, height, className }: PreviewCanvasProps) {
+export function PreviewCanvas({
+  template,
+  data,
+  mode = 'editor',
+  width,
+  height,
+  className,
+}: PreviewCanvasProps) {
   const frame = calculatePreviewFrame(template.canvas.width, template.canvas.height, width, height)
-  const layout = calculatePreviewLayout(template, frame)
+  const layout = calculatePreviewLayout({ template, data, mode }, frame)
   const previewBackgroundAsset = getPreviewBackgroundAsset(template)
   const previewFrameBackground = getPreviewFrameBackground(template)
   const safeArea = template.canvas.safeArea ?? {
@@ -632,8 +661,8 @@ export function PreviewCanvas({ template, width, height, className }: PreviewCan
           />
         ) : null}
         {layout.map((item) => renderElement(item))}
-        {template.preview.showLayerBounds ? renderLayerBounds(layout) : null}
-        {template.preview.showSafeArea && safeArea.enabled
+        {mode === 'editor' && template.preview.showLayerBounds ? renderLayerBounds(layout) : null}
+        {mode === 'editor' && template.preview.showSafeArea && safeArea.enabled
           ? renderSafeArea(frame, safeArea.marginX, safeArea.marginY)
           : null}
       </div>

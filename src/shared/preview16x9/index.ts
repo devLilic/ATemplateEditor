@@ -8,3 +8,5 @@ export {
   type PreviewElementLayout,
   type PreviewFrameLayout,
 } from './PreviewCanvas'
+export { resolveTextLayerContent } from './resolveLayerContent'
+export type { Preview16x9Input } from './previewTypes'
