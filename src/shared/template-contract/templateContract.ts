@@ -387,6 +387,25 @@ export interface TemplateLegacyContract {
 
 export interface TemplateContract extends TemplateContractRoot, TemplateLegacyContract {}
 
+export interface UpdateTemplateSettingsPatch {
+  name?: string
+  description?: string
+  tags?: string[]
+  liveboardTemplateName?: string
+  safeArea?: TemplateSafeAreaContract
+  metadata?: {
+    tags?: string[]
+  }
+  output?: {
+    liveboard?: {
+      templateName?: string
+    }
+  }
+  canvas?: {
+    safeArea?: TemplateSafeAreaContract
+  }
+}
+
 interface CreateEmptyTemplateInput {
   name?: string
   description?: string
@@ -733,6 +752,45 @@ export function updateTemplateMetadata(
     metadata: {
       ...template.metadata,
       ...patch,
+    },
+  }
+}
+
+export function updateTemplateSettings(
+  template: TemplateContract,
+  patch: UpdateTemplateSettingsPatch,
+): TemplateContract {
+  const nextUpdatedAt = new Date().toISOString()
+  const nextTags = patch.tags ?? patch.metadata?.tags ?? template.metadata.tags
+  const nextTemplateName =
+    patch.liveboardTemplateName ??
+    patch.output?.liveboard?.templateName
+  const nextSafeArea = patch.safeArea ?? patch.canvas?.safeArea
+
+  return {
+    ...template,
+    name: patch.name ?? template.name,
+    description: patch.description ?? template.description,
+    canvas: nextSafeArea
+      ? {
+          ...template.canvas,
+          safeArea: {
+            ...nextSafeArea,
+          },
+        }
+      : template.canvas,
+    output: nextTemplateName !== undefined
+      ? {
+          ...template.output,
+          liveboard: {
+            templateName: nextTemplateName,
+          },
+        }
+      : template.output,
+    metadata: {
+      ...template.metadata,
+      tags: nextTags,
+      updatedAt: nextUpdatedAt,
     },
   }
 }

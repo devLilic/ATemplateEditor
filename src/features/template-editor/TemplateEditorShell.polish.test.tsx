@@ -86,14 +86,15 @@ describe('TemplateEditorShell workspace layout', () => {
     }
   })
 
-  it('renders right-panel tabs for Inspector, Data, Bindings, and OnAir', async () => {
+  it('renders right-panel tabs for Inspector, Data, Fields, and Output', async () => {
     const view = await renderTemplateEditorShell()
 
     try {
       expect(findButtonByText(view.container, 'Inspector')?.tagName).toBe('BUTTON')
       expect(findButtonByText(view.container, 'Data')?.tagName).toBe('BUTTON')
-      expect(findButtonByText(view.container, 'Bindings')?.tagName).toBe('BUTTON')
-      expect(findButtonByText(view.container, 'OnAir')?.tagName).toBe('BUTTON')
+      expect(findButtonByText(view.container, 'Fields')?.tagName).toBe('BUTTON')
+      expect(findButtonByText(view.container, 'Output')?.tagName).toBe('BUTTON')
+      expect(findButtonByText(view.container, 'OnAir')).toBeUndefined()
     } finally {
       await view.cleanup()
     }
@@ -106,7 +107,8 @@ describe('TemplateEditorShell workspace layout', () => {
       expect(view.container.textContent).toContain('Common')
       expect(view.container.textContent).not.toContain('Apply sample data')
       expect(view.container.textContent).not.toContain('Add text field')
-      expect(view.container.textContent).not.toContain('Clear OSC commands')
+      expect(view.container.textContent).not.toContain('OSC host')
+      expect(view.container.textContent).not.toContain('duration')
     } finally {
       await view.cleanup()
     }

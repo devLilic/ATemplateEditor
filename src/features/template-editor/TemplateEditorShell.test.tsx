@@ -209,6 +209,14 @@ describe('TemplateEditorShell', () => {
     const view = await renderTemplateEditorShell()
 
     try {
+      const outputTab = findButtonByText(view.container, 'Output')
+
+      expect(outputTab).toBeDefined()
+
+      await act(async () => {
+        outputTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
       expect(view.container.textContent).toContain('Draft validation')
       expect(view.container.textContent).toContain('warnings')
       expect(view.container.textContent).toContain('output.liveboard.templateName')
@@ -222,10 +230,33 @@ describe('TemplateEditorShell', () => {
 
     try {
       const exportButton = findButtonByText(view.container, 'Export JSON')
+      const outputTab = findButtonByText(view.container, 'Output')
 
       expect(exportButton).toBeDefined()
       expect(exportButton?.disabled).toBe(true)
+
+      await act(async () => {
+        outputTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      })
+
       expect(view.container.textContent).toContain('Final export blocked')
+    } finally {
+      await view.cleanup()
+    }
+  })
+
+  it('does not render an OnAir tab or runtime timer controls', async () => {
+    const view = await renderTemplateEditorShell()
+
+    try {
+      expect(findButtonByText(view.container, 'OnAir')).toBeUndefined()
+      expect(view.container.textContent).not.toContain('OSC host')
+      expect(view.container.textContent).not.toContain('OSC port')
+      expect(view.container.textContent).not.toContain('OSC play')
+      expect(view.container.textContent).not.toContain('OSC stop')
+      expect(view.container.textContent).not.toContain('OSC resume')
+      expect(view.container.textContent).not.toContain('preroll')
+      expect(view.container.textContent).not.toContain('postroll')
     } finally {
       await view.cleanup()
     }

@@ -22,7 +22,6 @@ import { EditableBindingsPanel } from './EditableBindingsPanel'
 import { ElementPropertiesPanel } from './ElementPropertiesPanel'
 import { AssetsPanel } from './AssetsPanel'
 import { LayersPanel } from './LayersPanel'
-import { OnAirMetadataPanel } from './OnAirMetadataPanel'
 import { PreviewDataPanel } from './PreviewDataPanel'
 import { TemplateSettingsPanel } from './TemplateSettingsPanel'
 import { PreviewCanvas } from '@/shared/preview16x9'
@@ -34,14 +33,14 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { Panel } from '@/shared/ui/Panel'
 import { FormSection, FormSelect } from './TemplateEditorFormPrimitives'
 
-type InspectorTabId = 'inspector' | 'data' | 'bindings' | 'onair'
+type InspectorTabId = 'inspector' | 'data' | 'fields' | 'output'
 type LeftSidebarTabId = 'template' | 'assets' | 'library' | 'layers'
 
 const inspectorTabs: Array<{ id: InspectorTabId; label: string }> = [
   { id: 'inspector', label: 'Inspector' },
   { id: 'data', label: 'Data' },
-  { id: 'bindings', label: 'Bindings' },
-  { id: 'onair', label: 'OnAir' },
+  { id: 'fields', label: 'Fields' },
+  { id: 'output', label: 'Output' },
 ]
 
 const leftSidebarTabs: Array<{ id: LeftSidebarTabId; label: string }> = [
@@ -505,62 +504,6 @@ export function TemplateEditorShell() {
                     value={exportJson}
                   />
                 </div>
-                {draftValidation ? (
-                  <div className='rounded-lg border border-ui-border bg-ui-card/20 p-3' data-testid='validation-panel'>
-                    <div className='mb-3 flex flex-wrap items-center gap-2'>
-                      <span className='text-xs font-medium uppercase tracking-wide text-ui-secondary'>
-                        Draft validation
-                      </span>
-                      <Badge variant={draftValidation.errors.length > 0 ? 'danger' : 'active'}>
-                        {draftValidation.errors.length} errors
-                      </Badge>
-                      <Badge variant={draftValidation.warnings.length > 0 ? 'warning' : 'muted'}>
-                        {draftValidation.warnings.length} warnings
-                      </Badge>
-                      {finalExportValidation?.errors.length ? (
-                        <Badge variant='danger'>Final export blocked</Badge>
-                      ) : (
-                        <Badge variant='active'>Final export ready</Badge>
-                      )}
-                    </div>
-
-                    {draftValidation.errors.length === 0 && draftValidation.warnings.length === 0 ? (
-                      <p className='text-sm text-ui-secondary'>No draft validation issues.</p>
-                    ) : (
-                      <div className='space-y-3'>
-                        {draftValidation.errors.length > 0 ? (
-                          <div>
-                            <div className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-ui-danger'>
-                              Errors
-                            </div>
-                            <ul className='space-y-1 text-sm text-ui-danger'>
-                              {draftValidation.errors.map((issue, index) => (
-                                <li key={`draft-error-${issue.path}-${index}`}>
-                                  <span className='font-mono'>{issue.path}</span>: {issue.message}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-
-                        {draftValidation.warnings.length > 0 ? (
-                          <div>
-                            <div className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-ui-warning'>
-                              Warnings
-                            </div>
-                            <ul className='space-y-1 text-sm text-ui-warning'>
-                              {draftValidation.warnings.map((issue, index) => (
-                                <li key={`draft-warning-${issue.path}-${index}`}>
-                                  <span className='font-mono'>{issue.path}</span>: {issue.message}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                ) : null}
               </div>
             ) : (
               <EmptyState
@@ -579,8 +522,8 @@ export function TemplateEditorShell() {
                   <Badge variant='selected'>Selected element</Badge>
                   <Badge variant='muted'>{selectedElement.kind}</Badge>
                 </div>
-              ) : activeInspectorTab === 'onair' ? (
-                <Badge variant='muted'>Metadata</Badge>
+              ) : activeInspectorTab === 'output' ? (
+                <Badge variant='muted'>Template output</Badge>
               ) : undefined
             }
             className='overflow-hidden'
@@ -709,7 +652,7 @@ export function TemplateEditorShell() {
               )
             ) : null}
 
-            {activeInspectorTab === 'bindings' ? (
+            {activeInspectorTab === 'fields' ? (
               selectedTemplate ? (
                 <EditableBindingsPanel
                   onTemplateChange={handleTemplateChange}
@@ -723,15 +666,77 @@ export function TemplateEditorShell() {
               )
             ) : null}
 
-            {activeInspectorTab === 'onair' ? (
+            {activeInspectorTab === 'output' ? (
               selectedTemplate ? (
-                <OnAirMetadataPanel
-                  onTemplateChange={handleTemplateChange}
-                  template={selectedTemplate}
-                />
+                <div className='flex flex-col gap-4'>
+                  <TemplateSettingsPanel
+                    onTemplateChange={handleTemplateChange}
+                    template={selectedTemplate}
+                  />
+
+                  {draftValidation ? (
+                    <div
+                      className='rounded-lg border border-ui-border bg-ui-card/20 p-3'
+                      data-testid='validation-panel'
+                    >
+                      <div className='mb-3 flex flex-wrap items-center gap-2'>
+                        <span className='text-xs font-medium uppercase tracking-wide text-ui-secondary'>
+                          Draft validation
+                        </span>
+                        <Badge variant={draftValidation.errors.length > 0 ? 'danger' : 'active'}>
+                          {draftValidation.errors.length} errors
+                        </Badge>
+                        <Badge variant={draftValidation.warnings.length > 0 ? 'warning' : 'muted'}>
+                          {draftValidation.warnings.length} warnings
+                        </Badge>
+                        {finalExportValidation?.errors.length ? (
+                          <Badge variant='danger'>Final export blocked</Badge>
+                        ) : (
+                          <Badge variant='active'>Final export ready</Badge>
+                        )}
+                      </div>
+
+                      {draftValidation.errors.length === 0 && draftValidation.warnings.length === 0 ? (
+                        <p className='text-sm text-ui-secondary'>No draft validation issues.</p>
+                      ) : (
+                        <div className='space-y-3'>
+                          {draftValidation.errors.length > 0 ? (
+                            <div>
+                              <div className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-ui-danger'>
+                                Errors
+                              </div>
+                              <ul className='space-y-1 text-sm text-ui-danger'>
+                                {draftValidation.errors.map((issue, index) => (
+                                  <li key={`draft-error-${issue.path}-${index}`}>
+                                    <span className='font-mono'>{issue.path}</span>: {issue.message}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+
+                          {draftValidation.warnings.length > 0 ? (
+                            <div>
+                              <div className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-ui-warning'>
+                                Warnings
+                              </div>
+                              <ul className='space-y-1 text-sm text-ui-warning'>
+                                {draftValidation.warnings.map((issue, index) => (
+                                  <li key={`draft-warning-${issue.path}-${index}`}>
+                                    <span className='font-mono'>{issue.path}</span>: {issue.message}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               ) : (
                 <EmptyState
-                  description='Select a template to inspect runtime metadata.'
+                  description='Select a template to inspect output settings and validation.'
                   title='No template selected'
                 />
               )

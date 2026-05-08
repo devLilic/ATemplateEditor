@@ -446,3 +446,91 @@ describe('template layer contract final model', () => {
     )
   })
 })
+
+describe('template settings and liveboard output contract', () => {
+  function getUpdateTemplateSettings() {
+    const moduleRecord = templateContractModule as Record<string, unknown>
+
+    return moduleRecord.updateTemplateSettings as
+      | ((
+          template: Record<string, unknown>,
+          patch: Record<string, unknown>,
+        ) => Record<string, unknown>)
+      | undefined
+  }
+
+  it('exposes updateTemplateSettings as a contract helper', () => {
+    const updateTemplateSettings = getUpdateTemplateSettings()
+
+    expect(typeof updateTemplateSettings).toBe('function')
+  })
+
+  it('updateTemplateSettings can update name and description', () => {
+    const updateTemplateSettings = getUpdateTemplateSettings()
+    const template = createEmptyTemplate() as Record<string, unknown>
+    const nextTemplate = updateTemplateSettings?.(template, {
+      name: 'Breaking Lower Third',
+      description: 'Primary live graphics template',
+    })
+
+    expect(nextTemplate).toBeDefined()
+    expect(nextTemplate).toEqual(
+      expect.objectContaining({
+        name: 'Breaking Lower Third',
+        description: 'Primary live graphics template',
+      }),
+    )
+  })
+
+  it('updateTemplateSettings can update metadata.tags', () => {
+    const updateTemplateSettings = getUpdateTemplateSettings()
+    const template = createEmptyTemplate() as Record<string, unknown>
+    const nextTemplate = updateTemplateSettings?.(template, {
+      metadata: {
+        tags: ['news', 'sports'],
+      },
+    })
+
+    expect(nextTemplate).toBeDefined()
+    expect(nextTemplate).toHaveProperty('metadata.tags')
+    expect((nextTemplate as Record<string, unknown>).metadata).toEqual(
+      expect.objectContaining({
+        tags: ['news', 'sports'],
+      }),
+    )
+  })
+
+  it('updateTemplateSettings can update output.liveboard.templateName', () => {
+    const updateTemplateSettings = getUpdateTemplateSettings()
+    const template = createEmptyTemplate() as Record<string, unknown>
+    const nextTemplate = updateTemplateSettings?.(template, {
+      output: {
+        liveboard: {
+          templateName: 'lower-third-main',
+        },
+      },
+    })
+
+    expect(nextTemplate).toBeDefined()
+    expect(nextTemplate).toHaveProperty('output.liveboard.templateName', 'lower-third-main')
+  })
+
+  it('updateTemplateSettings can update canvas.safeArea', () => {
+    const updateTemplateSettings = getUpdateTemplateSettings()
+    const template = createEmptyTemplate() as Record<string, unknown>
+    const nextTemplate = updateTemplateSettings?.(template, {
+      canvas: {
+        safeArea: {
+          enabled: false,
+          marginX: 48,
+          marginY: 32,
+        },
+      },
+    })
+
+    expect(nextTemplate).toBeDefined()
+    expect(nextTemplate).toHaveProperty('canvas.safeArea.enabled', false)
+    expect(nextTemplate).toHaveProperty('canvas.safeArea.marginX', 48)
+    expect(nextTemplate).toHaveProperty('canvas.safeArea.marginY', 32)
+  })
+})

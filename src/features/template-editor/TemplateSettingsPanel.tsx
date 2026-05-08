@@ -1,31 +1,11 @@
 import type { ChangeEvent } from 'react'
-import {
-  updateTemplateMetadata,
-  type TemplateContract,
-  type TemplateType,
-} from '@/shared/template-contract/templateContract'
-import {
-  FormField,
-  FormInput,
-  FormSection,
-  FormSelect,
-  formControlClassName,
-} from './TemplateEditorFormPrimitives'
+import type { TemplateContract } from '@/shared/template-contract/templateContract'
+import { FormCheckbox, FormField, FormInput, FormSection, formControlClassName } from './TemplateEditorFormPrimitives'
+import { updateTemplateSettings } from './templateSettingsState'
 
 interface TemplateSettingsPanelProps {
   template: TemplateContract
   onTemplateChange: (template: TemplateContract) => void
-}
-
-function updateTemplateRoot<K extends keyof TemplateContract>(
-  template: TemplateContract,
-  key: K,
-  value: TemplateContract[K],
-) {
-  return {
-    ...template,
-    [key]: value,
-  }
 }
 
 function parseTags(value: string) {
@@ -35,15 +15,51 @@ function parseTags(value: string) {
     .filter(Boolean)
 }
 
+function parseSafeAreaNumber(
+  template: TemplateContract,
+  axis: 'marginX' | 'marginY',
+  value: string,
+) {
+  const parsedValue = Number(value)
+
+  if (!Number.isFinite(parsedValue)) {
+    return template.canvas.safeArea ?? {
+      enabled: true,
+      marginX: 80,
+      marginY: 60,
+    }
+  }
+
+  return {
+    ...(template.canvas.safeArea ?? {
+      enabled: true,
+      marginX: 80,
+      marginY: 60,
+    }),
+    [axis]: parsedValue,
+  }
+}
+
 export function TemplateSettingsPanel({
   template,
   onTemplateChange,
 }: TemplateSettingsPanelProps) {
-  const handleRootChange =
-    <K extends 'name' | 'description' | 'category' | 'type'>(key: K) =>
-    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-      const value = event.currentTarget.value as TemplateContract[K]
-      onTemplateChange(updateTemplateRoot(template, key, value))
+  const safeArea = template.canvas.safeArea ?? {
+    enabled: true,
+    marginX: 80,
+    marginY: 60,
+  }
+
+  const handleTextChange =
+    (field: 'name' | 'description' | 'liveboardTemplateName') =>
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const value = event.currentTarget.value
+
+      onTemplateChange(
+        updateTemplateSettings(template, {
+          [field]: value,
+        }),
+      )
     }
 
   return (
@@ -52,76 +68,48 @@ export function TemplateSettingsPanel({
         <div className='min-w-0'>
           <div className='text-sm font-semibold text-ui-primary'>Template settings</div>
           <div className='text-xs text-ui-secondary'>
-            Configure the identity and authoring metadata stored with this template.
+            Configure the final template metadata and LiveBoard output fields.
           </div>
         </div>
       </div>
 
       <FormSection
-        description='These fields describe the template itself and travel with the exported JSON.'
+        description='These fields are part of the final exported template contract.'
         title='Template'
       >
         <FormInput
           label='name'
-          onChange={handleRootChange('name')}
+          onChange={handleTextChange('name')}
           type='text'
           value={template.name}
-        />
-
-        <FormInput
-          label='id'
-          readOnly
-          type='text'
-          value={template.id}
         />
 
         <FormField label='description'>
           <textarea
             aria-label='description'
-            className={`${formControlClassName('min-h-24 py-2')}`}
-            onChange={handleRootChange('description')}
+            className={formControlClassName('min-h-24 py-2')}
+            onChange={handleTextChange('description')}
             value={template.description ?? ''}
           />
         </FormField>
 
         <FormInput
-          label='category'
-          onChange={handleRootChange('category')}
+          label='liveboard templateName'
+          onChange={handleTextChange('liveboardTemplateName')}
           type='text'
-          value={template.category ?? ''}
+          value={template.output.liveboard?.templateName ?? ''}
         />
-
-        <FormSelect
-          label='type'
-          onChange={handleRootChange('type')}
-          value={template.type}
-        >
-          <option value={'graphic' satisfies TemplateType}>graphic</option>
-        </FormSelect>
       </FormSection>
 
       <FormSection
-        description='Author and tags help classify templates across the workspace.'
+        description='Tags and safe area settings remain editor-authored contract metadata.'
         title='Metadata'
       >
-        <FormInput
-          label='author'
-          onChange={(event) => {
-            onTemplateChange(
-              updateTemplateMetadata(template, {
-                author: event.currentTarget.value || undefined,
-              }),
-            )
-          }}
-          type='text'
-          value={template.metadata.author ?? ''}
-        />
-
         <FormInput
           label='tags'
           onChange={(event) => {
             onTemplateChange(
-              updateTemplateMetadata(template, {
+              updateTemplateSettings(template, {
                 tags: parseTags(event.currentTarget.value),
               }),
             )
@@ -129,6 +117,47 @@ export function TemplateSettingsPanel({
           placeholder='news, lower-third, sports'
           type='text'
           value={template.metadata.tags.join(', ')}
+        />
+
+        <FormCheckbox
+          checked={safeArea.enabled}
+          label='safe area enabled'
+          onChange={(event) => {
+            onTemplateChange(
+              updateTemplateSettings(template, {
+                safeArea: {
+                  ...safeArea,
+                  enabled: event.currentTarget.checked,
+                },
+              }),
+            )
+          }}
+        />
+
+        <FormInput
+          label='marginX'
+          onChange={(event) => {
+            onTemplateChange(
+              updateTemplateSettings(template, {
+                safeArea: parseSafeAreaNumber(template, 'marginX', event.currentTarget.value),
+              }),
+            )
+          }}
+          type='number'
+          value={safeArea.marginX}
+        />
+
+        <FormInput
+          label='marginY'
+          onChange={(event) => {
+            onTemplateChange(
+              updateTemplateSettings(template, {
+                safeArea: parseSafeAreaNumber(template, 'marginY', event.currentTarget.value),
+              }),
+            )
+          }}
+          type='number'
+          value={safeArea.marginY}
         />
       </FormSection>
     </div>

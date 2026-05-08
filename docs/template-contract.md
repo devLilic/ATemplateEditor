@@ -186,6 +186,8 @@ Important rules:
 - The only LiveBoard-specific contract field is `output.liveboard.templateName`.
 - `TemplateEditor` does not store OSC host, OSC port, OSC addresses, or playback commands in the final contract.
 - `TemplateEditor` does not store OnAir runtime timers or transport state in the final contract.
+- `TemplateEditor` defines only the template identifier needed downstream: `output.liveboard.templateName`.
+- `OnAir Player` is responsible for OSC target configuration and OSC addresses at runtime.
 
 ## Fields
 
@@ -304,6 +306,7 @@ Summary:
 - `TemplateEditor` does not contain OSC host/port/address.
 - `TemplateEditor` does not contain OnAir runtime/timers.
 - The single LiveBoard field is `output.liveboard.templateName`.
+- `OnAir Player` owns OSC target/address resolution and runtime playback transport.
 
 ## Default Template
 
@@ -494,11 +497,18 @@ Warnings are intended to surface editorial cleanup work before final export, not
 - Uses `preview.sampleData` for local preview authoring.
 - Does not store OSC transport config in the final contract.
 - Does not store OnAir runtime timers in the final contract.
+- Defines `output.liveboard.templateName` and no other OSC runtime settings.
 
 ### LiveBoard Integration
 
 - Reads `output.liveboard.templateName` when a template needs a LiveBoard identifier.
 - No other LiveBoard transport or runtime settings are stored in the template contract.
+
+### OnAir Player
+
+- Reads `output.liveboard.templateName` to locate or map the downstream playout template.
+- Owns OSC host, OSC port, OSC addresses, and runtime playout commands.
+- Owns timer-based playback behavior outside the template authoring contract.
 
 ### Render / Preview Engines
 
