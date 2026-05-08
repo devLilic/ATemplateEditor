@@ -414,11 +414,54 @@ The default template currently provides:
 
 ## Export / Import JSON
 
-- Export uses `JSON.stringify(template, null, 2)`.
+Final export contains only the contract root fields:
+
+- `schemaVersion`
+- `id`
+- `name`
+- `description`
+- `canvas`
+- `output`
+- `fields`
+- `assets`
+- `layers`
+- `preview`
+- `metadata`
+
+Final export does not include:
+
+- selected layer or selected element UI state
+- open panels or active tabs
+- local zoom state
+- undo/redo editor history
+- OSC host, OSC port, OSC addresses, or other OSC runtime state
+- OnAir runtime or timer state
+- legacy `editableFields`
+- legacy `bindings`
+- legacy `previewData`
+- legacy `fallbackValues`
+
+Import rules:
+
 - Import starts with `JSON.parse`.
-- Import validates the parsed object before accepting it.
+- Import accepts the final contract shape directly.
+- Import may apply minimal compatibility migration for older JSON.
+- Import validates the normalized result with `validateTemplate()` before accepting it.
+
+Minimal legacy compatibility currently includes:
+
+- `editableFields -> fields`
+- `previewData -> preview.sampleData`
+- `fallbackValues -> fields[].defaultValue` where the field mapping is clear
+- `bindings -> text layer fieldId` where the mapping is clear
+- `osc.templateName` or `control.templateName -> output.liveboard.templateName` where available
+
+Other notes:
+
 - Exported asset references use `path`.
 - Exported preview authoring data uses `preview.sampleData`.
+- OSC runtime is not exported.
+- Editor UI state is not exported.
 
 ## Validation
 
